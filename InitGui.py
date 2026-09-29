@@ -53,6 +53,19 @@ class FreeFusionWorkbench(Gui.Workbench):
 Gui.addWorkbench(FreeFusionWorkbench())
 
 
+def _freefusion_early_prefs():
+    """Settings that FreeCAD reads while building the main window (before the timer)."""
+    try:
+        grp = App.ParamGet("User parameter:BaseApp/MainWindow/DockWindows/OverlayRight")
+        if grp.GetInt("Width", 0) <= 0:
+            grp.SetInt("Width", 380)     # FreeCAD 1.1's floating task panel, Fusion dialog size
+    except Exception:
+        pass
+
+
+_freefusion_early_prefs()
+
+
 def _freefusion_startup():
     """Runs once the main window exists."""
     try:

@@ -18,6 +18,6 @@ else
     CMD=("$FC" -M "$HERE" -u "$OUT/profile/user.cfg")
 fi
 timeout 240 xvfb-run -a -s "-screen 0 1600x1000x24" "${CMD[@]}" \
-    --log-file "$OUT/freecad.log" "$HERE/tests/gui_smoke.py" >"$OUT/stdout.txt" 2>&1
+    --log-file "$OUT/freecad.log" "$HERE/tests/${TEST:-gui_smoke.py}" >"$OUT/stdout.txt" 2>&1
 grep -E "^(PASS|FAIL|EXCEPTION|SUMMARY|CONSOLE)" "$OUT/gui_log.txt" 2>/dev/null || { tail -40 "$OUT/stdout.txt"; exit 1; }
 grep -q "^SUMMARY ok" "$OUT/gui_log.txt"

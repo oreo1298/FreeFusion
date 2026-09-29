@@ -133,6 +133,8 @@ class KeyFilter(QtCore.QObject):
         try:
             if ev.isAutoRepeat() or _typing() or not _in_main_window():
                 return False
+            if ev.key() == QtCore.Qt.Key_Escape and ev.modifiers() == QtCore.Qt.NoModifier:
+                return self._escape(t)
             target = self._resolve(ev)
         except Exception:
             return False
@@ -142,6 +144,16 @@ class KeyFilter(QtCore.QObject):
             ev.accept()
             return True
         QtCore.QTimer.singleShot(0, lambda: self.dispatch(target))
+        return True
+
+    def _escape(self, etype):
+        """Fusion: Esc cancels the running command (task dialog)."""
+        from ..commands.base import in_sketch
+        if in_sketch() or not Gui.Control.activeDialog():
+            return False
+        if etype == QtCore.QEvent.ShortcutOverride:
+            return False
+        QtCore.QTimer.singleShot(0, cancel_active_dialog)
         return True
 
     def dispatch(self, target):
@@ -165,6 +177,36 @@ class KeyFilter(QtCore.QObject):
         if self.pending:
             name, self.pending = self.pending, None
             QtCore.QTimer.singleShot(150, lambda: Gui.runCommand(name, 0))
+
+
+def cancel_active_dialog():
+    """Press the task panel's Cancel/Close button (works for every FreeCAD dialog)."""
+    from . import widgets as W
+    panel = W._last_panel
+    if panel is not None and not panel._closing:
+        try:
+            panel.form.objectName()
+            if panel.form.isVisible():
+                panel.reject()
+                return
+        except RuntimeError:
+            pass
+    mw = Gui.getMainWindow()
+    for box in mw.findChildren(QtWidgets.QDialogButtonBox):
+        try:
+            if not box.isVisible():
+                continue
+            for role in (QtWidgets.QDialogButtonBox.Cancel, QtWidgets.QDialogButtonBox.Close):
+                b = box.button(role)
+                if b is not None and b.isVisible() and b.isEnabled():
+                    b.click()
+                    return
+        except RuntimeError:
+            continue
+    try:
+        Gui.Control.closeDialog()
+    except Exception:
+        pass
 
 
 _filter = {"obj": None}

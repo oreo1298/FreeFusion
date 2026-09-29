@@ -91,7 +91,7 @@ class TimelineStrip(QtWidgets.QWidget):
             if it.suppressed:
                 p.setPen(QtGui.QPen(QtGui.QColor(t["danger"]), 1.6))
                 p.drawLine(QtCore.QPointF(x + 4, y + CELL - 6), QtCore.QPointF(x + CELL - 5, y + 3))
-            if not self._valid(it):
+            if not rolled and not it.suppressed and not self._valid(it):
                 p.setBrush(QtGui.QColor(t["danger"]))
                 p.setPen(QtCore.Qt.NoPen)
                 p.drawEllipse(QtCore.QPointF(x + CELL - 6, y + 5), 3.5, 3.5)
