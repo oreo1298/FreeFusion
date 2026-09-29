@@ -343,7 +343,12 @@ class FormPanel(object):
     def addSelection(self, doc, obj, sub, pnt):
         if self._busy or self._closing:
             return
-        field = self.active_field()
+        try:
+            field = self.active_field()
+        except RuntimeError:
+            # the dialog was closed from outside (Gui.Control.closeDialog)
+            self._cleanup()
+            return
         if field is None:
             return
         leaf, el = resolve(doc, obj, sub)
@@ -419,8 +424,23 @@ class FormPanel(object):
         return True
 
 
+_last_panel = None
+
+
 def show(panel):
+    global _last_panel
     if Gui.Control.activeDialog():
-        Gui.Control.closeDialog()
+        prev = _last_panel
+        closed = False
+        if prev is not None and not prev._closing:
+            try:
+                prev.form.objectName()
+                prev.reject()          # proper cleanup + abort its preview
+                closed = True
+            except RuntimeError:
+                pass
+        if not closed and Gui.Control.activeDialog():
+            Gui.Control.closeDialog()
     Gui.Control.showDialog(panel)
+    _last_panel = panel
     return panel

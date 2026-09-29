@@ -11,7 +11,7 @@ SOLID = [
     ("CREATE",
      ["FF_NewComponent", "FF_CreateSketch", "FF_Extrude", "FF_Revolve", "FF_Hole", "FF_RectPattern"],
      ["FF_NewComponent", "FF_CreateSketch", "-",
-      "FF_Extrude", "FF_Revolve", "FF_Sweep", "FF_Loft", "FF_Rib", "-",
+      "FF_Extrude", "FF_Revolve", "FF_Sweep", "FF_Loft", "-",
       "FF_Hole", "FF_Thread", "-",
       "FF_Box", "FF_Cylinder", "FF_Sphere", "FF_Torus", "FF_Coil", "FF_Pipe", "-",
       PATTERN, "FF_Mirror", "FF_Thicken"]),

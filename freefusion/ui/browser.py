@@ -163,7 +163,7 @@ class Browser(QtWidgets.QWidget):
             if doc is None:
                 return
             root = D.root_component(doc)
-            active = D.active_component(doc) if root is not None else None
+            active = D.active_component(doc, create=False)
             top = self._item(self.tree, root.Label if root else doc.Label, "Component", "root",
                              root, "root")
             if root is not None:
@@ -219,7 +219,7 @@ class Browser(QtWidgets.QWidget):
             self._eye_for(folder, any_vis)
             if path + "/" + key not in self._expanded:
                 folder.setExpanded(key in ("bodies",))
-        active = D.active_component(doc)
+        active = D.active_component(doc, create=False)
         for c in kids["components"]:
             it = self._item(parent, "%s:1" % c.Label, "Component", "component", c, path + "/" + c.Name)
             self._eye_for(it, _vis(c))

@@ -74,8 +74,14 @@ def _apply(feature, params, subtractive):
     direction = params.get("direction", ONE_SIDE)
     extent = params.get("extent", EXTENT_DISTANCE)
     d = float(params.get("distance", 10.0))
-    feature.SideType = direction
-    if extent == EXTENT_ALL:
+    has_side = "SideType" in feature.PropertiesList      # FreeCAD 1.1+
+    if has_side:
+        feature.SideType = direction
+    else:                                               # FreeCAD 1.0
+        feature.Midplane = direction == SYMMETRIC
+    if not has_side and direction == TWO_SIDES and extent == EXTENT_DISTANCE:
+        feature.Type = "TwoLengths"
+    elif extent == EXTENT_ALL:
         feature.Type = "ThroughAll" if subtractive else "UpToLast"
     elif extent == EXTENT_TO and params.get("to"):
         name, sub = params["to"]

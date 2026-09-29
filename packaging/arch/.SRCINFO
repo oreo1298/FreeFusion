@@ -1,0 +1,19 @@
+pkgbase = freefusion-git
+	pkgdesc = Fusion 360 style workspace for FreeCAD (ribbon, browser, timeline, marking menu, Fusion shortcuts)
+	pkgver = 0.1.0.r0.g0000000
+	pkgrel = 1
+	url = https://github.com/oreo1298/FreeFusion
+	install = freefusion.install
+	arch = any
+	license = LGPL-2.1-or-later
+	makedepends = git
+	depends = freecad>=1.0
+	depends = bash
+	optdepends = freecad-sheetmetal-git: SHEET METAL tab
+	optdepends = xdg-utils: desktop integration
+	provides = freefusion
+	conflicts = freefusion
+	source = freefusion::git+https://github.com/oreo1298/FreeFusion.git
+	sha256sums = SKIP
+
+pkgname = freefusion-git

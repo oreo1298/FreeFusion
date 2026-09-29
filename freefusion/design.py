@@ -221,8 +221,12 @@ def is_assembly(obj):
 _active_component = {}
 
 
-def active_component(doc):
-    """Component where new geometry goes (Fusion's 'activated' component)."""
+def active_component(doc, create=True):
+    """Component where new geometry goes (Fusion's 'activated' component).
+
+    With create=False this never modifies the document (returns None for plain
+    FreeCAD documents without a FreeFusion root).
+    """
     if doc is None:
         return None
     if App.GuiUp:
@@ -243,7 +247,7 @@ def active_component(doc):
                 return comp
         except Exception:
             pass
-    return root_component(doc, create=True)
+    return root_component(doc, create=create)
 
 
 def set_active_component(doc, comp):

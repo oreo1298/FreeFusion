@@ -38,8 +38,27 @@ def always():
 
 
 def in_sketch():
+    obj = editing_object()
+    return obj is not None and obj.isDerivedFrom("Sketcher::SketchObject")
+
+
+def editing_object():
+    """The document object being edited (sketch, feature, assembly...) or None."""
     vp = editing_vp()
-    return vp is not None and vp.Object.isDerivedFrom("Sketcher::SketchObject")
+    if vp is None:
+        return None
+    obj = getattr(vp, "Object", None)
+    if obj is not None:
+        return obj
+    # FreeCAD 1.0: some C++ view providers (e.g. assemblies) have no .Object
+    doc = App.ActiveDocument
+    for o in (doc.Objects if doc else []):
+        try:
+            if o.ViewObject is vp or o.ViewObject == vp:
+                return o
+        except Exception:
+            continue
+    return None
 
 
 def editing_vp():

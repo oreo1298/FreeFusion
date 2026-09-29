@@ -28,28 +28,46 @@ def _mw():
     return Gui.getMainWindow()
 
 
+def _alive(w):
+    """False for wrappers whose C++ object is gone (FreeCAD recreates some docks)."""
+    try:
+        w.objectName()
+        return True
+    except RuntimeError:
+        return False
+
+
 def _find(names):
     out = []
     for d in _mw().findChildren(QtWidgets.QDockWidget):
-        if d.objectName() in names:
-            out.append(d)
+        try:
+            if d.objectName() in names:
+                out.append(d)
+        except RuntimeError:
+            continue
     return out
 
 
 def in_overlay(dock):
     """True when FreeCAD 1.1's overlay manager hosts the dock (floating over the 3D view)."""
-    return dock.parent() is not _mw()
+    try:
+        return dock.parent() is not _mw()
+    except RuntimeError:
+        return False
 
 
 def show_overlay_for(dock, visible):
     """Show/hide the overlay panel (e.g. 'OverlayRight') that hosts dock."""
-    w = dock.parent()
-    while w is not None and w is not _mw() and not w.objectName().startswith("Overlay"):
-        w = w.parent()
-    if w is None or w is _mw():
-        return
-    if w.isVisible() != visible:
-        w.setVisible(visible)
+    try:
+        w = dock.parent()
+        while w is not None and w is not _mw() and not w.objectName().startswith("Overlay"):
+            w = w.parent()
+        if w is None or w is _mw():
+            return
+        if w.isVisible() != visible:
+            w.setVisible(visible)
+    except RuntimeError:
+        pass
 
 
 def _dock(name, title, widget, area):
@@ -99,6 +117,12 @@ def activate():
     # command dialogs on the right like Fusion's floating dialogs
     for d in _find(FC_DOCKS["tasks"]):
         if in_overlay(d):
+            # FreeCAD 1.1 floats the task panel; give it a Fusion dialog-like width
+            import FreeCAD as App
+            grp = App.ParamGet("User parameter:BaseApp/MainWindow/DockWindows/OverlayRight")
+            width = grp.GetInt("Width", 0)
+            if width <= 0 or width > 600:
+                grp.SetInt("Width", 380)
             continue
         _state["tasks_area"] = mw.dockWidgetArea(d)
         if mw.dockWidgetArea(d) != QtCore.Qt.RightDockWidgetArea:
@@ -126,9 +150,11 @@ def deactivate():
     if _state["bottom"] is not None:
         _state["bottom"].hide()
     for d in mw.findChildren(QtWidgets.QDockWidget):
-        vis = _state["saved"].get(d.objectName())
-        if vis:
-            d.show()
+        try:
+            if _state["saved"].get(d.objectName()):
+                d.show()
+        except RuntimeError:
+            continue
     for d in _find(FC_DOCKS["tasks"]):
         if in_overlay(d):
             continue

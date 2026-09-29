@@ -168,19 +168,28 @@ def _assembly(target):
                          "joints need designs created with FreeFusion 'New Design'.")
             return
         gd = Gui.ActiveDocument
-        was_editing = gd.getInEdit() is not None and gd.getInEdit().Object == root
+        was_editing = base.editing_object() == root
         if not was_editing:
             if gd.getInEdit() is not None:
                 gd.resetEdit()
             gd.setEdit(root.Name)
-        base.run_target(target, modules=("CommandCreateAssembly", "CommandCreateJoint",
-                                         "CommandInsertLink", "CommandCreateView", "CommandCreateBom",
-                                         "CommandCreateSimulation", "CommandSolveAssembly"),
-                        workbench="AssemblyWorkbench")
+        mods = ("CommandCreateAssembly", "CommandCreateJoint", "CommandInsertLink", "CommandCreateView",
+                "CommandCreateBom", "CommandCreateSimulation", "CommandSolveAssembly")
+        base.ensure_command(target, mods, "AssemblyWorkbench")
+        if target.startswith("Assembly_CreateJoint"):
+            parts = [o for o in root.Group if (D.is_component(o) or D.is_body(o) or D.role(o) == D.ROLE_BODY)
+                     and D.role(o) not in (D.ROLE_TOOL, D.ROLE_CONSUMED)]
+            if len(parts) < 2:
+                from ..ui import notify
+                notify.error("Joints connect two components or bodies of the design.")
+                if not was_editing:
+                    gd.resetEdit()
+                return
+            _ground_first_part(parts)
+        base.run_target(target, mods, "AssemblyWorkbench")
         if not was_editing:
             def leave():
-                ed = gd.getInEdit()
-                if ed is not None and ed.Object == root:
+                if base.editing_object() == root:
                     gd.resetEdit()
             timer = QtCore.QTimer()
             timer.setInterval(400)
@@ -193,6 +202,27 @@ def _assembly(target):
             QtCore.QTimer.singleShot(600, timer.start)
             _timers.append(timer)
     return run
+
+
+def _ground_first_part(parts):
+    """Fusion grounds the first component automatically; FreeCAD 1.0 needs it for joints."""
+    try:
+        import UtilsAssembly
+        grounded = UtilsAssembly.isAssemblyGrounded() if hasattr(UtilsAssembly, "isAssemblyGrounded") else True
+    except Exception:
+        return
+    if grounded:
+        return
+    first = parts[0]
+    try:
+        import CommandCreateJoint
+        doc = first.Document
+        doc.openTransaction("Ground")
+        CommandCreateJoint.createGroundedJoint(first)
+        doc.commitTransaction()
+        doc.recompute()
+    except Exception as e:
+        App.Console.PrintLog("FreeFusion: could not ground %s: %s\n" % (first.Label, e))
 
 
 def _construct(key):

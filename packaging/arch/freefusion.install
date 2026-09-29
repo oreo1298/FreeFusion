@@ -1,0 +1,10 @@
+post_install() {
+    echo ">> Start FreeFusion with 'freefusion' (or from the application menu)."
+    echo ">> It uses its own FreeCAD profile in ~/.config/freefusion."
+    echo ">> To also get the FreeFusion workbench inside regular FreeCAD, run once:"
+    echo ">>   mkdir -p ~/.local/share/FreeCAD/v1-1/Mod && ln -s /usr/share/freefusion ~/.local/share/FreeCAD/v1-1/Mod/FreeFusion"
+}
+
+post_upgrade() {
+    post_install
+}

@@ -45,10 +45,12 @@ def _mw():
 
 
 class DocObserver(object):
-    PROPS = {"Label", "Visibility", "Group", "Suppressed", "FFRole", "Tip", "Meta", "Placement"}
+    PROPS = {"Label", "Visibility", "Group", "Suppressed", "FFRole", "Tip", "Meta"}
 
     def slotCreatedObject(self, obj):
-        if _state["active"]:
+        doc = obj.Document
+        loading = any(getattr(doc, flag, False) for flag in ("Restoring", "Transacting", "Importing"))
+        if _state["active"] and not loading:
             QtCore.QTimer.singleShot(0, lambda o=obj: _fusion_name(o))
             if D.is_sketch(obj):
                 QtCore.QTimer.singleShot(0, lambda o=obj: D.keep_sketch_in_workbench(o))
@@ -241,8 +243,8 @@ def _watch():
         if sketch and k is not None:
             k.sketch_opened()
         if sketch:
-            vp = base.editing_vp()
-            _state["editing"] = (vp.Object.Document.Name, vp.Object.Name) if vp else None
+            obj = base.editing_object()
+            _state["editing"] = (obj.Document.Name, obj.Name) if obj is not None else None
         else:
             ed = _state["editing"]
             _state["editing"] = None

@@ -238,7 +238,8 @@ def center_of_mass():
         return
     com = com * (1.0 / tot)
     doc.openTransaction("Center of Mass")
-    pt = doc.addObject("Part::DatumPoint", "CenterOfMass")
+    from ..features.construct import _add_datum
+    pt = _add_datum(doc, "Part::DatumPoint", "CenterOfMass")
     pt.Label = D.unique_label(doc, "Center of Mass ")
     pt.MapMode = "Deactivated"
     pt.Placement = App.Placement(com, App.Rotation())

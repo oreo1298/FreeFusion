@@ -16,10 +16,25 @@ from .. import design as D
 V = App.Vector
 
 
+# Part::Datum* objects (usable outside bodies) arrived in FreeCAD 1.1; on 1.0 the
+# PartDesign datums serve the same purpose when placed in a component.
+FALLBACK = {"Part::DatumPlane": "PartDesign::Plane", "Part::DatumLine": "PartDesign::Line",
+            "Part::DatumPoint": "PartDesign::Point"}
+
+
+def _add_datum(doc, typ, base):
+    try:
+        return doc.addObject(typ, base)
+    except Exception:
+        if typ in FALLBACK:
+            return doc.addObject(FALLBACK[typ], base)
+        raise
+
+
 def _datum(doc, typ, base, support, mode, offset=None, container=None, path_param=None,
            gid_base=None):
     container = container if container is not None else D.active_component(doc)
-    obj = doc.addObject(typ, base)
+    obj = _add_datum(doc, typ, base)
     label, gid = D.new_group_id(doc, gid_base or base)
     obj.Label = label
     D.add_to(container, obj)

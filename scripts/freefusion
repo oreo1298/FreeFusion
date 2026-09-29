@@ -12,6 +12,20 @@ set -euo pipefail
 self="$(readlink -f "${BASH_SOURCE[0]}")"
 here="$(dirname "$self")"
 
+# --- profile ----------------------------------------------------------------
+cfg_dir="${FREEFUSION_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/freefusion}"
+cfg="$cfg_dir/user.cfg"
+mkdir -p "$cfg_dir"
+case "${1:-}" in
+    --reset-profile)
+        rm -f "$cfg"
+        echo "freefusion: profile reset ($cfg)"
+        shift ;;
+    --help|-h)
+        echo "usage: freefusion [--reset-profile] [FreeCAD options] [files...]"
+        echo "  --reset-profile   start again with FreeFusion's default settings"
+        exit 0 ;;
+esac
 # --- locate the add-on --------------------------------------------------------
 mod_dir="${FREEFUSION_DIR:-}"
 if [ -z "$mod_dir" ]; then
@@ -53,24 +67,12 @@ if [ ${#fc[@]} -eq 0 ]; then
     exit 1
 fi
 
-# --- profile ----------------------------------------------------------------
-cfg_dir="${FREEFUSION_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/freefusion}"
-cfg="$cfg_dir/user.cfg"
-mkdir -p "$cfg_dir"
 if [ ! -s "$cfg" ]; then
     cat >"$cfg" <<'XML'
 <?xml version="1.0" encoding="UTF-8" standalone="no" ?>
 <FCParameters>
   <FCParamGroup Name="Root">
     <FCParamGroup Name="BaseApp">
-      <FCParamGroup Name="MainWindow">
-        <FCParamGroup Name="DockWindows">
-          <FCParamGroup Name="OverlayRight">
-            <FCText Name="Widgets">Tasks,</FCText>
-            <FCInt Name="Width" Value="360"/>
-          </FCParamGroup>
-        </FCParamGroup>
-      </FCParamGroup>
       <FCParamGroup Name="Preferences">
         <FCParamGroup Name="General">
           <FCText Name="AutoloadModule">FreeFusionWorkbench</FCText>

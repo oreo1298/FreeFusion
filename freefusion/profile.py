@@ -13,7 +13,7 @@ from .params import rgba
 
 P = "User parameter:BaseApp/Preferences/"
 BACKUP = params.ROOT + "/Backup"
-PROFILE_VERSION = 3
+PROFILE_VERSION = 4
 
 
 def _settings(theme="light"):
@@ -100,6 +100,9 @@ def _settings(theme="light"):
         ("Mod/PartDesign", "Bool", "RefineModel", True),
         ("Mod/PartDesign", "Bool", "SwitchToWB", False),
         ("Mod/Assembly", "Bool", "SwitchToWB", False),
+        # --- keep the report view closed like Fusion; errors show in the timeline
+        ("OutputWindow", "Bool", "checkShowReportViewOnError", False),
+        ("OutputWindow", "Bool", "checkShowReportViewOnWarning", False),
         # --- document
         ("Document", "Bool", "CreateBackupFiles", True),
         ("Document", "Int", "CountBackupFiles", 1),

@@ -1,0 +1,39 @@
+# Maintainer: oreo1298 <ajv1298@gmail.com>
+pkgname=freefusion-git
+_pkgname=freefusion
+pkgver=0.1.0.r0.g0000000
+pkgrel=1
+pkgdesc="Fusion 360 style workspace for FreeCAD (ribbon, browser, timeline, marking menu, Fusion shortcuts)"
+arch=('any')
+url="https://github.com/oreo1298/FreeFusion"
+license=('LGPL-2.1-or-later')
+depends=('freecad>=1.0' 'bash')
+optdepends=('freecad-sheetmetal-git: SHEET METAL tab'
+            'xdg-utils: desktop integration')
+makedepends=('git')
+provides=('freefusion')
+conflicts=('freefusion')
+install=freefusion.install
+source=("$_pkgname::git+https://github.com/oreo1298/FreeFusion.git")
+sha256sums=('SKIP')
+
+pkgver() {
+    cd "$_pkgname"
+    local ver
+    ver="$(sed -n 's|.*<version>\(.*\)</version>.*|\1|p' package.xml)"
+    printf "%s.r%s.g%s" "$ver" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+}
+
+package() {
+    cd "$_pkgname"
+    local dest="$pkgdir/usr/share/freefusion"
+    install -d "$dest"
+    cp -r freefusion scripts InitGui.py Init.py package.xml "$dest/"
+    find "$dest" -name '__pycache__' -type d -prune -exec rm -rf {} +
+    install -Dm755 scripts/freefusion "$pkgdir/usr/bin/freefusion"
+    install -Dm644 scripts/freefusion.desktop "$pkgdir/usr/share/applications/freefusion.desktop"
+    install -Dm644 freefusion/resources/icons/FreeFusion.svg \
+        "$pkgdir/usr/share/icons/hicolor/scalable/apps/freefusion.svg"
+    install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+    install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+}

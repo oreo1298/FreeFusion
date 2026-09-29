@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=FreeFusion
+GenericName=Parametric 3D CAD
+Comment=FreeCAD with a Fusion 360 style workspace
+Exec=freefusion %F
+Icon=freefusion
+Terminal=false
+Categories=Graphics;Engineering;3DGraphics;
+Keywords=CAD;3D;modeling;FreeCAD;Fusion;parametric;
+MimeType=application/x-extension-fcstd;
+StartupWMClass=FreeCAD

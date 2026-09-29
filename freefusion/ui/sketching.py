@@ -55,8 +55,8 @@ def finish_sketch():
     gd = Gui.ActiveDocument
     if gd is None:
         return
-    vp = gd.getInEdit()
-    sk = vp.Object if vp is not None else None
+    from ..commands.base import editing_object
+    sk = editing_object()
     if Gui.Control.activeDialog():
         try:
             Gui.Control.closeDialog()
@@ -70,6 +70,13 @@ def finish_sketch():
             pass
         sk.Document.recompute()
         _last_sketch["name"] = (sk.Document.Name, sk.Name)
+        # like Fusion, go back to the home view after the first sketch of a design
+        if not D.design_bodies(sk.Document, visible_only=True):
+            try:
+                gd.ActiveView.viewIsometric()
+                gd.ActiveView.fitAll()
+            except Exception:
+                pass
 
 
 _last_sketch = {"name": None}
@@ -213,11 +220,13 @@ def _hole_on(obj, sub, point=None):
         face = feat.getSubObject(sub)
         point = face.CenterOfMass
     local = sk.getGlobalPlacement().inverse().multVec(point)
-    sk.addGeometry(Part.Point(App.Vector(local.x, local.y, 0)), False)
+    # a circle's center locates the hole in every FreeCAD version (points need 1.1)
+    sk.addGeometry(Part.Circle(App.Vector(local.x, local.y, 0), App.Vector(0, 0, 1), 3.0), False)
     sk.Label = label + " Sketch"
+    doc.recompute()
     D.tag(sk, group=gid)
     hole = body.newObject("PartDesign::Hole", "Hole")
-    hole.Profile = (sk, [""])
+    hole.Profile = sk
     hole.Diameter = 6.0
     hole.Depth = 10.0
     try:

@@ -74,8 +74,11 @@ def test_extrude_new_body_and_cut():
     check("extrude.cut.volume", abs(body.Shape.Volume - exp) < 1e-3, (body.Shape.Volume, exp))
     check("extrude.cut.op", D.data(res2.primary).get("operation") == C.CUT)
 
-    # join upward
-    res3 = X.create(doc, [(sk2, [])], {"distance": 4})
+    # join upward: a boss next to the hole
+    sk3 = D.new_sketch(doc, D.active_component(doc), support=[(tip, face)])
+    sk3.addGeometry(Part.Circle(V(15, 5, 0), V(0, 0, 1), 2))
+    doc.recompute()
+    res3 = X.create(doc, [(sk3, [])], {"distance": 4})
     check("auto.join", D.data(res3.primary).get("operation") == C.JOIN)
     exp2 = exp + math.pi * 4 * 4
     check("extrude.join.volume", abs(body.Shape.Volume - exp2) < 1e-3, (body.Shape.Volume, exp2))
@@ -92,13 +95,13 @@ def test_extrude_new_body_and_cut():
 def test_timeline(doc, body):
     items = T.items(doc)
     kinds = [i.kind for i in items]
-    check("timeline.items", kinds[:5] == ["Sketch", "Extrude", "Sketch", "ExtrudeCut", "Extrude"], kinds)
+    check("timeline.items", kinds[:6] == ["Sketch", "Extrude", "Sketch", "ExtrudeCut", "Sketch", "Extrude"], kinds)
     v_full = body.Shape.Volume
     T.roll_to(doc, 2)  # sketch1 + extrude1 only
     check("timeline.rollback.volume", abs(body.Shape.Volume - 1000) < 1e-6, body.Shape.Volume)
     check("timeline.rollback.marker", T.marker(doc) == 2)
     rolled = [i.rolled for i in T.items(doc)]
-    check("timeline.rolled.flags", rolled[:5] == [False, False, True, True, True], rolled)
+    check("timeline.rolled.flags", rolled[:6] == [False, False, True, True, True, True], rolled)
     # a feature created while rolled back is inserted at the marker
     sk = xy_sketch(doc)
     rect(sk, 30, 0, 40, 10)

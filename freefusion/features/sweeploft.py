@@ -56,10 +56,14 @@ def sweep(doc, profile_refs, path_refs, operation=None, targets=None, orientatio
 
     def make(kind):
         def fn(body, binder):
-            f = body.newObject("PartDesign::%sPipe" % kind, "Sweep")
+            # compute the binders before the feature exists: FreeCAD 1.0 crashes when
+            # recomputing a Pipe/Loft without profile
+            sp = spine(body)
             doc.recompute()
+            sp = (sp[0], ["Edge%d" % (i + 1) for i in range(max(len(sp[0].Shape.Edges), 1))])
+            f = body.newObject("PartDesign::%sPipe" % kind, "Sweep")
             f.Profile = (binder, [_profile_sub(binder)])
-            f.Spine = spine(body)
+            f.Spine = sp
             f.Mode = orientation
             return f
         return fn
@@ -97,9 +101,9 @@ def loft(doc, sections, operation=None, targets=None, ruled=False, closed=False)
 
     def make(kind):
         def fn(body, binder):
-            f = body.newObject("PartDesign::%sLoft" % kind, "Loft")
             secs = [D.make_binder(body, s, gid) for s in sections[1:]]
             doc.recompute()
+            f = body.newObject("PartDesign::%sLoft" % kind, "Loft")
             f.Profile = (binder, [_profile_sub(binder)])
             f.Sections = [(b, [_profile_sub(b)]) for b in secs]
             f.Ruled = ruled

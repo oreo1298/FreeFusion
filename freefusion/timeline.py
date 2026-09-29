@@ -222,9 +222,21 @@ def _groups(doc):
     return keep, groups
 
 
+def _persistent(doc):
+    """Only FreeFusion designs get timeline data written into them."""
+    try:
+        if META_ORDER in doc.Meta:
+            return True
+    except Exception:
+        return False
+    return D.root_component(doc) is not None
+
+
 def sync(doc):
     """Reconcile the stored order with the document; returns (keys, groups)."""
     natural, groups = _groups(doc)
+    if not _persistent(doc):
+        return natural, groups
     stored = _meta_get(doc, META_ORDER, [])
     mark = marker(doc)
     known = [k for k in stored if k in groups]
