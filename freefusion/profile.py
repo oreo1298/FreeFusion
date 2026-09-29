@@ -13,7 +13,7 @@ from .params import rgba
 
 P = "User parameter:BaseApp/Preferences/"
 BACKUP = params.ROOT + "/Backup"
-PROFILE_VERSION = 4
+PROFILE_VERSION = 5
 
 
 def _settings(theme="light"):
@@ -77,6 +77,12 @@ def _settings(theme="light"):
         ("Mod/Sketcher/General", "Bool", "LeaveSketchWithEscape", False),
         ("Mod/Sketcher/General", "Bool", "AutoRecompute", True),
         ("Mod/Sketcher/General", "Bool", "ShowDimensionalName", False),
+        # --- sketching like Fusion: snapping on, length/angle boxes while drawing,
+        # no redundant automatic constraints (e.g. a line drawn on an axis)
+        ("Mod/Sketcher", "Bool", "AutoRemoveRedundants", True),
+        ("Mod/Sketcher/Tools", "Int", "OnViewParameterVisibility", 1),
+        ("Mod/Sketcher/Snap", "Bool", "Snap", True),
+        ("Mod/Sketcher/Snap", "Bool", "SnapToObjects", True),
         # --- ViewCube (NaviCube) in Fusion's position and colours
         ("NaviCube", "Int", "CornerNaviCube", 1),
         ("NaviCube", "Int", "CubeSize", 110),

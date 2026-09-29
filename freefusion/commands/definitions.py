@@ -270,6 +270,9 @@ def edit_feature(obj):
         W.show(PP.ExtrudePanel(gid=gid))
     elif kind == "Revolve":
         W.show(PP.RevolvePanel(gid=gid))
+    elif kind in ("Fillet", "Chamfer"):
+        from ..ui.panels import modify_panels as MP
+        W.show((MP.FilletPanel if kind == "Fillet" else MP.ChamferPanel)(gid=gid))
     elif D.is_component(obj):
         D.set_active_component(obj.Document, obj)
     else:
@@ -467,9 +470,11 @@ def register_all():
     register("FF_PressPull", "Press Pull", "Offset faces or fillet edges (Q)", "PressPull",
              lambda: __import__("freefusion.ui.tools", fromlist=["x"]).press_pull(), active=not_editing,
              shortcut="Q", keywords="offset face push pull")
-    register("FF_Fillet", "Fillet", "Round edges (F)", "Fillet", _pd("PartDesign_Fillet"), active=not_editing,
+    register("FF_Fillet", "Fillet", "Round edges (F)", "Fillet",
+             lambda: __import__("freefusion.ui.tools", fromlist=["x"]).dress_up("Fillet"), active=not_editing,
              shortcut="F", keywords="round radius")
-    register("FF_Chamfer", "Chamfer", "Bevel edges", "Chamfer", _pd("PartDesign_Chamfer"), active=not_editing,
+    register("FF_Chamfer", "Chamfer", "Bevel edges", "Chamfer",
+             lambda: __import__("freefusion.ui.tools", fromlist=["x"]).dress_up("Chamfer"), active=not_editing,
              keywords="bevel")
     register("FF_Shell", "Shell", "Hollow a body, removing selected faces", "Shell",
              _pd("PartDesign_Thickness"), active=not_editing, keywords="thickness hollow")

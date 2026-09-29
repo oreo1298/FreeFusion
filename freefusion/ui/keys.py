@@ -138,6 +138,8 @@ class KeyFilter(QtCore.QObject):
             if ev.key() in (QtCore.Qt.Key_Return, QtCore.Qt.Key_Enter) and \
                     ev.modifiers() in (QtCore.Qt.NoModifier, QtCore.Qt.KeypadModifier):
                 return self._enter(t)
+            if t == QtCore.QEvent.KeyPress and self._value_key(ev):
+                return True
             target = self._resolve(ev)
         except Exception:
             return False
@@ -148,6 +150,16 @@ class KeyFilter(QtCore.QObject):
             return True
         QtCore.QTimer.singleShot(0, lambda: self.dispatch(target))
         return True
+
+    def _value_key(self, ev):
+        """Fusion: typing a number during a command edits the value next to the arrow."""
+        text = ev.text()
+        if not text or text not in "0123456789.,-+(":
+            return False
+        if ev.modifiers() & ~(QtCore.Qt.ShiftModifier | QtCore.Qt.KeypadModifier):
+            return False
+        from . import manipulator
+        return manipulator.type_into_box(text)
 
     def _escape(self, etype):
         """Fusion: Esc cancels the running command (task dialog)."""

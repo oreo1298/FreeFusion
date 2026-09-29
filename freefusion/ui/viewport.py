@@ -104,6 +104,12 @@ def set_grid_visible(on):
 def refresh_grids(enabled=True):
     """Add/remove the grid in every open 3D view."""
     show = enabled and grid_visible()
+    if show:
+        try:
+            from ..commands.base import in_sketch
+            show = not in_sketch()     # the sketch grid replaces it while sketching
+        except Exception:
+            pass
     for gdoc in _gui_documents():
         for view in _views(gdoc):
             key = id(view)
@@ -237,6 +243,13 @@ class ViewFilter(QtCore.QObject):
                 return True
             return False
         btn = ev.button() if t != QtCore.QEvent.MouseMove else QtCore.Qt.NoButton
+        # on-canvas manipulators (drag arrows) come first
+        from . import manipulator
+        if manipulator.handle_event(self.widget, ev, t):
+            return True
+        # sketch tools: lock the cursor to round values and key points
+        if not mode and self._snap(ev, t, btn):
+            return True
         # double middle click = fit all (Fusion)
         if t == QtCore.QEvent.MouseButtonDblClick and btn == QtCore.Qt.MiddleButton:
             Gui.SendMsgToActiveView("ViewFit")
@@ -281,6 +294,27 @@ class ViewFilter(QtCore.QObject):
                 self._open_menu(press, gesture=False)
             return True
         return False
+
+    def _snap(self, ev, t, btn):
+        if t == QtCore.QEvent.MouseMove:
+            if ev.buttons() & ~QtCore.Qt.LeftButton:
+                return False
+        elif btn != QtCore.Qt.LeftButton:
+            return False
+        if not self._sketch_tool_active():
+            return False
+        from . import sketch_snap
+        pos, gpos = _pos(ev)
+        p = sketch_snap.snap(self.widget, pos.x(), pos.y(), ev.modifiers())
+        if p is None or p == pos:
+            return False
+        new = _mouse_event(t, p, self.widget.mapToGlobal(p), btn, ev.buttons(), ev.modifiers())
+        self.synth = True
+        try:
+            QtWidgets.QApplication.sendEvent(self.widget, new)
+        finally:
+            self.synth = False
+        return True
 
     def _pass_right_click(self):
         from ..commands.base import in_sketch

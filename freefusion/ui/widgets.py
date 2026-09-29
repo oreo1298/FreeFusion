@@ -317,6 +317,7 @@ class FormPanel(object):
         self.hint.setWordWrap(True)
         self._closing = False
         self._busy = False
+        self._arrows = {}
         if self.doc is not None:
             self.doc.openTransaction(self.transaction)
         self.build()
@@ -397,8 +398,47 @@ class FormPanel(object):
     def getStandardButtons(self):
         return QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel
 
+    # on-canvas drag arrows ------------------------------------------------------
+    def set_arrow(self, key, origin, direction, field, scale=1.0, minimum=None, flip_with_sign=True):
+        """Show (or move) the drag arrow `key` that edits `field`."""
+        from . import manipulator as M
+        a = self._arrows.get(key)
+        if a is not None and a in M.arrows():
+            a.origin = App.Vector(origin)
+            d = App.Vector(direction)
+            if d.Length > 1e-12:
+                a.direction = d.normalize()
+            a.scale = scale
+            a.update()
+            return a
+        try:
+            a = M.add(M.Arrow(origin, direction, field, scale=scale, minimum=minimum,
+                              flip_with_sign=flip_with_sign))
+        except Exception as e:
+            App.Console.PrintLog("FreeFusion arrow: %s\n" % e)
+            return None
+        self._arrows[key] = a
+        first = len(self._arrows) == 1
+        if first and not self._closing:
+            QtCore.QTimer.singleShot(0, a.focus)
+        return a
+
+    def drop_arrow(self, key):
+        from . import manipulator as M
+        a = self._arrows.pop(key, None)
+        if a is not None:
+            M.remove(a)
+
+    def clear_arrows(self):
+        for k in list(self._arrows):
+            self.drop_arrow(k)
+
     def _cleanup(self):
         self._closing = True
+        try:
+            self.clear_arrows()
+        except Exception:
+            pass
         try:
             Gui.Selection.removeObserver(self)
         except Exception:

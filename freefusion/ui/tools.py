@@ -20,14 +20,19 @@ def press_pull():
     items = [(o, s) for o, subs in W.selection_refs() for s in subs]
     edges = [(o, s) for o, s in items if s.startswith("Edge")]
     if edges and len(edges) == len(items):
-        from ..commands.definitions import activate_body_from_selection
-        from ..commands import base
-        activate_body_from_selection()
-        base.run_target("PartDesign_Fillet")
-        return
+        return dress_up("Fillet")
     faces = [(o, s) for o, s in items if s.startswith("Face")]
     Gui.Selection.clearSelection()
     W.show(PressPullPanel(faces))
+
+
+def dress_up(kind):
+    """FILLET / CHAMFER dialog with the selected edges and faces."""
+    from .panels.modify_panels import ChamferPanel, FilletPanel
+    items = [(o, s) for o, subs in W.selection_refs() for s in subs
+             if s.startswith("Edge") or s.startswith("Face")]
+    Gui.Selection.clearSelection()
+    W.show((FilletPanel if kind == "Fillet" else ChamferPanel)(items))
 
 
 def move():

@@ -336,6 +336,51 @@ def test_special():
           res.new_bodies[0].Shape.Volume)
 
 
+def _edge_at(obj, p):
+    for i, e in enumerate(obj.Shape.Edges):
+        u0, u1 = e.ParameterRange
+        if (e.valueAt((u0 + u1) / 2) - p).Length < 1e-6:
+            return "Edge%d" % (i + 1)
+    return None
+
+
+def test_fillet_chamfer():
+    from freefusion.features import dressup as DU
+    doc = new_doc("dressup")
+    sk = xy_sketch(doc)
+    rect(sk, 0, 0, 20, 10)
+    doc.recompute()
+    res = X.create(doc, [(sk, [])], {"distance": 10})
+    doc.recompute()
+    body = res.new_bodies[0]
+    tip = body.Tip
+    v0 = body.Shape.Volume
+    e = _edge_at(tip, V(10, 0, 10))       # top front edge
+    feats = DU.create(doc, DU.FILLET, [(tip, [e])], {"radius": 2.0, "tangent_chain": True})
+    check("fillet.created", len(feats) == 1 and feats[0].isValid(), feats)
+    exp = v0 - (4 - math.pi) * 20
+    check("fillet.volume", abs(body.Shape.Volume - exp) < 1e-3, (body.Shape.Volume, exp))
+    check("fillet.timeline", any(i.key == D.group_id(feats[0]) for i in T.items(doc)))
+    gid = D.group_id(feats[0])
+    refs, prm = DU.load(doc, gid)
+    check("fillet.load", refs and refs[0][0] == tip and prm.get("radius") == 2.0, (refs, prm))
+    DU.update(doc, gid, DU.FILLET, refs, {"radius": 1.0, "tangent_chain": True})
+    exp1 = v0 - (1 - math.pi / 4) * 20
+    check("fillet.update", abs(body.Shape.Volume - exp1) < 1e-3, (body.Shape.Volume, exp1))
+    # an edge of the fillet result maps back to the same edge before it
+    e_back = _edge_at(feats[0], V(10, 10, 0))
+    check("fillet.map.element", DU.map_element(feats[0], e_back, tip) == _edge_at(tip, V(10, 10, 0)))
+    # tangent chain: a rounded rectangle's top loop is picked up from one edge
+    fil = body.Tip
+    chain = DU.tangent_chain(fil.Shape, [_edge_at(fil, V(10, 10, 10))])
+    check("tangent.chain.single", len(chain) == 1, chain)
+    ch = DU.create(doc, DU.CHAMFER, [(fil, [_edge_at(fil, V(10, 10, 10))])],
+                   {"type": DU.EQUAL, "distance": 1.0})
+    exp2 = exp1 - 0.5 * 20
+    check("chamfer.volume", ch and ch[0].isValid() and abs(body.Shape.Volume - exp2) < 1e-3,
+          (body.Shape.Volume, exp2))
+
+
 TESTS = [
     ("extrude", lambda: test_timeline(*test_extrude_new_body_and_cut())),
     ("intersect", test_intersect_and_component),
@@ -344,6 +389,7 @@ TESTS = [
     ("construct", test_construct_and_params),
     ("sweeploft", test_sweep_loft),
     ("special", test_special),
+    ("dressup", test_fillet_chamfer),
 ]
 
 for name, fn in TESTS:

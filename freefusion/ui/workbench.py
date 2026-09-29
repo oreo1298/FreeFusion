@@ -271,9 +271,13 @@ def _watch():
         k = keys.instance()
         if sketch and k is not None:
             k.sketch_opened()
+        # the sketch grid replaces the ground grid while sketching
+        viewport.refresh_grids(not sketch)
         if sketch:
             obj = base.editing_object()
             _state["editing"] = (obj.Document.Name, obj.Name) if obj is not None else None
+            from . import sketch_snap
+            sketch_snap.sketch_opened(obj)
         else:
             ed = _state["editing"]
             _state["editing"] = None

@@ -238,6 +238,32 @@ class ExtrudePanel(_ProfilePanel):
                 self.to.set_items([(o, prm["to"][1])])
         self._layout_changed()
 
+    def preview(self):
+        super(ExtrudePanel, self).preview()
+        self._update_arrows()
+
+    def _update_arrows(self):
+        refs = self.profile.refs() if hasattr(self, "profile") else []
+        if self._closing or not refs or self.extent.key() != X.EXTENT_DISTANCE:
+            self.clear_arrows()
+            return
+        try:
+            center = P.profile_center(refs)
+            normal = P.profile_normal(refs)
+        except Exception:
+            center = normal = None
+        if center is None or normal is None:
+            self.clear_arrows()
+            return
+        direction = self.direction.key()
+        self.set_arrow("distance", center, normal, self.distance,
+                       scale=0.5 if direction == X.SYMMETRIC else 1.0)
+        if direction == X.TWO_SIDES:
+            self.set_arrow("distance2", center, normal * -1, self.distance2, minimum=0.0,
+                           flip_with_sign=False)
+        else:
+            self.drop_arrow("distance2")
+
     def params(self):
         prm = X.default_params()
         prm["direction"] = self.direction.key()

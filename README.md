@@ -21,15 +21,18 @@ like Autodesk Fusion 360. Everything below the UI is still FreeCAD: files are pl
 | Middle-drag pan, Shift+middle orbit, wheel zoom | Same, plus double-middle-click to fit, and nav-bar Orbit/Pan/Zoom modes for left-drag |
 | ViewCube top right, light canvas, blue selection | NaviCube styled like the ViewCube, gradient canvas, ground grid, Fusion colours |
 | Extrude with Join / Cut / Intersect / New Body / New Component | Same operations, live preview, sketch *profiles* (click regions), Direction, Extent, Taper, To Object |
+| Drag arrows and value boxes on the canvas | Extrude, Press Pull, Fillet, Chamfer and Offset Plane show a drag arrow with a value box. Drag it (the value snaps to round numbers) or just type a number and press Enter |
+| Sketch snapping | The cursor locks to round values that follow the zoom (1, 2, 5, 10 …) and to endpoints, midpoints and centers. Hold Ctrl to draw freely |
+| Fillet / Chamfer with Tangent Chain | Same: pick edges (or faces) on several bodies, tangent edges are added automatically, edit it again from the timeline |
 | Sketches belong to components, not bodies | Same: one sketch can drive several bodies |
 | Change Parameters (user + model parameters) | Same dialog. Type `width / 2` or `1 in` in any value field. Dimensions are named d1, d2 … |
 | Data Panel | Local **Data Panel** (grid icon, top left): project folders in `~/FreeFusion Projects` and recent designs, shown with thumbnails |
 | Sketch Palette | **PALETTE** group on the SKETCH tab: Look At, Sketch Grid, Snap, Slice, Show Profile |
 | Light and dark theme | Both, switchable at runtime |
 
-| Sketching (SKETCH tab, Finish Sketch) | Command dialogs float on the right | Marking menu |
-|---|---|---|
-| ![sketch](docs/screenshot-sketch.png) | ![fillet](docs/screenshot-fillet.png) | ![marking menu](docs/marking-menu.png) |
+| Sketching (SKETCH tab, Finish Sketch) | Extrude: drag arrow and value box | Fillet with the value box | Marking menu |
+|---|---|---|---|
+| ![sketch](docs/screenshot-sketch.png) | ![extrude](docs/screenshot-extrude-arrow.png) | ![fillet](docs/screenshot-fillet.png) | ![marking menu](docs/marking-menu.png) |
 
 ## Install
 
@@ -94,11 +97,16 @@ right-drag in a direction runs that command immediately.
 **A typical part:**
 
 1. Press **L** (or **CREATE › Create Sketch**). Click a plane or a planar face.
-2. Draw. **D** dimensions, **X** toggles construction, **T** trims, **O** offsets.
+2. Draw. The cursor snaps to round values on the sketch grid and to endpoints,
+   midpoints and centers (hold **Ctrl** to turn snapping off). While drawing, type
+   a length or angle in the boxes next to the cursor (Tab moves between them).
+   **D** dimensions, **X** toggles construction, **T** trims, **O** offsets.
    Click **FINISH SKETCH** (or press **E** to go straight to Extrude).
 3. **E** (Extrude): click the closed regions you want, set the distance and pick the
    operation. It starts as *New Body* on an empty design, *Join* or *Cut* on a body face
    depending on direction, and *Join* when the tool overlaps a body.
+   Drag the blue arrow, or type a number (it goes into the box next to the arrow) and
+   press **Enter**.
 4. **F** fillets the selected edges. **Q** press-pulls faces (on edges it fillets).
    **H** puts a hole where you click.
 5. Drag the timeline marker back to change history, then double-click an item to edit it.
@@ -172,6 +180,9 @@ TechDraw is available under DRAWING. Other gaps are covered by FreeCAD itself:
 * **Render** needs the *Render* add-on. **Simulation** is FreeCAD FEM and **Manufacture** is FreeCAD CAM.
 * **Rib/Web** and **Emboss** have no direct equivalent yet.
 * **Thread** creates a modeled ISO-style thread. PartDesign **Hole** covers tapped holes.
+* **Snapping on FreeCAD 1.0:** a point placed exactly on a sketch axis is only as precise
+  as the mouse pixel along that axis (FreeCAD 1.0 skips grid rounding there). FreeCAD
+  1.1 rounds it exactly.
 
 ## Development
 
@@ -179,6 +190,7 @@ TechDraw is available under DRAWING. Other gaps are covered by FreeCAD itself:
 tests/run_headless.sh /path/to/freecadcmd                 # modeling logic (no GUI)
 tests/run_gui.sh /path/to/freecad [outdir] [managed|plain] # GUI smoke test under Xvfb, writes screenshots
 TEST=gui_input.py tests/run_gui.sh /path/to/freecad        # real keyboard/mouse input via xdotool
+TEST=gui_manip.py tests/run_gui.sh /path/to/freecad        # sketch snapping and drag arrows (xdotool)
 TIMEOUT=1500 TEST=gui_commands.py tests/run_gui.sh ...     # runs every FF_* command once
 python3 tools/make_icons.py                               # regenerate the SVG icon set
 ```

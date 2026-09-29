@@ -4,11 +4,13 @@
 import FreeCAD as App
 import FreeCADGui as Gui
 import Part
+from PySide import QtWidgets
 
 from ... import design as D
 from ...features import bodies as B
 from ...features import common as C
 from ...features import construct as K
+from ...features import dressup as DU
 from ...features import extrude as X
 from .. import widgets as W
 from .profile_panels import OPERATION_ITEMS, accept_body
@@ -72,6 +74,22 @@ class PressPullPanel(W.FormPanel):
             self.set_hint(str(e), error=True)
         finally:
             self._busy = False
+        self._update_arrow(refs)
+
+    def _update_arrow(self, refs):
+        if self._closing or not refs:
+            self.clear_arrows()
+            return
+        obj, faces = refs[0]
+        try:
+            f = obj.getSubObject(faces[0])
+            f = f.Faces[0]
+            c = f.CenterOfMass
+            u, v = f.Surface.parameter(c)
+            n = f.normalAt(u, v)
+        except Exception:
+            return
+        self.set_arrow("distance", c, n, self.distance)
 
     def finish(self):
         if self._gid is None:
@@ -265,6 +283,23 @@ class ConstructPanel(W.FormPanel):
             self.set_hint(str(e), error=True)
         finally:
             self._busy = False
+        if self.key == "OffsetPlane":
+            self._update_arrow()
+
+    def _update_arrow(self):
+        obj = self._obj
+        if self._closing or obj is None or not obj.isValid():
+            self.clear_arrows()
+            return
+        try:
+            pl = obj.getGlobalPlacement() if hasattr(obj, "getGlobalPlacement") else obj.Placement
+            n = pl.Rotation.multVec(App.Vector(0, 0, 1))
+            base = K._plane_of(self.slots[0].items[0])[0]
+            # project onto the reference plane (the datum sits `value` above it)
+            base = base + n * ((pl.Base - base).dot(n) - (self.value.value() or 0.0))
+        except Exception:
+            return
+        self.set_arrow("value", base, n, self.value, flip_with_sign=False)
 
     def finish(self):
         if self._obj is None:
@@ -333,3 +368,190 @@ class LoftPanel(W.FormPanel):
         SL.loft(self.doc, sections, self.op.key(), None, self.ruled.isChecked(),
                 self.closed.isChecked())
         return True
+
+
+# ---------------------------------------------------------------------------
+# FILLET / CHAMFER
+
+
+def _edge_or_face(obj, sub):
+    if not (sub.startswith("Edge") or sub.startswith("Face")):
+        return False
+    return D.body_of(obj) is not None
+
+
+class _DressUpPanel(W.FormPanel):
+    kind = DU.FILLET
+
+    def __init__(self, items=None, gid=None):
+        self.gid = gid
+        self.edit = gid is not None
+        self._built = None
+        super(_DressUpPanel, self).__init__()
+        if self.edit:
+            refs, prm = DU.load(self.doc, gid)
+            self.load_params(prm)
+            items = [(o, s) for o, subs in refs for s in subs]
+            self._built = gid
+        if items:
+            self.edges.set_items(items)
+            self.preview()
+        else:
+            self.edges.set_active(True)
+            self.set_hint("Select edges (or faces) to %s." % self.kind.lower())
+
+    def build(self):
+        self.edges = self.row("Edges", W.SelectionField(_edge_or_face, True, "Select edges"))
+        self.edges.changed.connect(self.preview)
+        self.chain = self.row("Tangent Chain", QtWidgets.QCheckBox())
+        self.chain.setChecked(True)
+        self.chain.toggled.connect(lambda *_: self.preview())
+        self.build_values()
+
+    def addSelection(self, doc, obj, sub, pnt):
+        """Clicks on this command's own preview map back to the edge before it."""
+        if self._built is not None and not self._busy:
+            leaf, el = W.resolve(doc, obj, sub)
+            own = D.group_members(self.doc, self._built)
+            if leaf is not None and leaf in own:
+                base = getattr(leaf, "BaseFeature", None)
+                mapped = DU.map_element(leaf, el, base) if base is not None else None
+                Gui.Selection.clearSelection()
+                if mapped is None:
+                    self.set_hint("That edge is created by this %s." % self.kind.lower())
+                    return
+                field = self.active_field()
+                if field is not None:
+                    field.toggle(base, mapped)      # emits changed -> preview
+                return
+        super(_DressUpPanel, self).addSelection(doc, obj, sub, pnt)
+
+    def preview(self):
+        if self._busy:
+            return
+        refs = self.edges.refs()
+        prm = self.params()
+        self._busy = True
+        try:
+            if not refs:
+                if self._built and not self.edit:
+                    C.remove_group(self.doc, self._built)
+                    self._built = None
+                    self.doc.recompute()
+                self.clear_arrows()
+                return
+            if self.edit:
+                # keep the base bodies visible: features re-attach at their old place
+                DU.update(self.doc, self._built, self.kind, refs, prm)
+            elif self._built is None:
+                label, gid = D.new_group_id(self.doc, self.kind)
+                DU.create(self.doc, self.kind, refs, prm, label=label, gid=gid)
+                self._built = gid
+            else:
+                DU.update(self.doc, self._built, self.kind, refs, prm)
+            bad = [f for f in D.group_members(self.doc, self._built) if not f.isValid()]
+            self.set_hint("The %s could not be computed with these values." % self.kind.lower()
+                          if bad else "", bool(bad))
+        except Exception as e:
+            self.set_hint(str(e), error=True)
+        finally:
+            self._busy = False
+        self._update_arrow(refs)
+
+    def _update_arrow(self, refs):
+        if self._closing:
+            return
+        edge = None
+        for o, subs in refs:
+            for s in subs:
+                if s.startswith("Edge"):
+                    edge = (o, s)
+                    break
+            if edge:
+                break
+        if edge is None:
+            self.clear_arrows()
+            return
+        try:
+            mid, inward = DU.edge_frame(*edge)
+        except Exception:
+            return
+        if inward is None:
+            return
+        # the arrow sits on the rounded surface and points out of the material
+        self.set_arrow("value", mid, inward * -1, self.value_field(), scale=-0.3,
+                       minimum=0.0, flip_with_sign=False)
+
+    def finish(self):
+        if self._built is None:
+            self.preview()
+        if self._built is None or not D.group_members(self.doc, self._built):
+            raise ValueError(self.hint.text() or "Select edges first")
+        bad = [f for f in D.group_members(self.doc, self._built) if not f.isValid()]
+        if bad:
+            raise ValueError("The %s could not be computed with these values." % self.kind.lower())
+        return True
+
+
+class FilletPanel(_DressUpPanel):
+    title = "FILLET"
+    icon = "Fillet"
+    transaction = "Fillet"
+    kind = DU.FILLET
+
+    def build_values(self):
+        self.radius = self.row("Radius", W.ValueField(1.0, "mm", 0.5))
+        self.radius.changed.connect(self.preview)
+
+    def value_field(self):
+        return self.radius
+
+    def load_params(self, prm):
+        self.radius.set_value(prm.get("radius", 1.0), prm.get("expr", ""))
+        self.chain.setChecked(prm.get("tangent_chain", True))
+
+    def params(self):
+        return {"radius": max(self.radius.value() or 0.0, 1e-3), "expr": self.radius.expression(),
+                "tangent_chain": self.chain.isChecked()}
+
+
+class ChamferPanel(_DressUpPanel):
+    title = "CHAMFER"
+    icon = "Chamfer"
+    transaction = "Chamfer"
+    kind = DU.CHAMFER
+
+    def build_values(self):
+        self.ctype = self.row("Chamfer Type", W.IconCombo([
+            (DU.EQUAL, "Equal distance", ""), (DU.TWO_DISTANCES, "Two distances", ""),
+            (DU.DISTANCE_ANGLE, "Distance and angle", "")]))
+        self.distance = self.row("Distance", W.ValueField(1.0, "mm", 0.5))
+        self.distance2 = self.row("Distance 2", W.ValueField(1.0, "mm", 0.5), key="distance2")
+        self.angle = self.row("Angle", W.ValueField(45.0, "deg", 5.0), key="angle")
+        self.ctype.currentIndexChanged.connect(self._type_changed)
+        for f in (self.distance, self.distance2, self.angle):
+            f.changed.connect(self.preview)
+        self._type_changed()
+
+    def _type_changed(self, *_):
+        t = self.ctype.key()
+        self.show_row("distance2", t == DU.TWO_DISTANCES)
+        self.show_row("angle", t == DU.DISTANCE_ANGLE)
+        if hasattr(self, "edges") and not self._busy:
+            self.preview()
+
+    def value_field(self):
+        return self.distance
+
+    def load_params(self, prm):
+        self.ctype.set_key(prm.get("type", DU.EQUAL))
+        self.distance.set_value(prm.get("distance", 1.0), prm.get("expr", ""))
+        self.distance2.set_value(prm.get("distance2", 1.0))
+        self.angle.set_value(prm.get("angle", 45.0))
+        self.chain.setChecked(prm.get("tangent_chain", True))
+        self._type_changed()
+
+    def params(self):
+        return {"type": self.ctype.key(), "distance": max(self.distance.value() or 0.0, 1e-3),
+                "expr": self.distance.expression(), "distance2": max(self.distance2.value() or 0.0, 1e-3),
+                "angle": self.angle.value() or 45.0, "tangent_chain": self.chain.isChecked()}
