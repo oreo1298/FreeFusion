@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<package format="1" xmlns="https://wiki.freecad.org/Package_Metadata">
+  <name>FreeFusion</name>
+  <description>A Fusion 360 style workspace for FreeCAD: ribbon toolbar, browser, parametric timeline, marking menu, Fusion keyboard shortcuts and navigation, and Fusion-like modeling operations (Extrude with Join/Cut/Intersect/New Body, Press Pull, Combine, construction geometry, user parameters).</description>
+  <version>0.1.0</version>
+  <date>2026-09-28</date>
+  <maintainer email="ajv1298@gmail.com">oreo1298</maintainer>
+  <license file="LICENSE">LGPL-2.1-or-later</license>
+  <url type="repository" branch="main">https://github.com/oreo1298/freefusion</url>
+  <url type="bugtracker">https://github.com/oreo1298/freefusion/issues</url>
+  <url type="readme">https://github.com/oreo1298/freefusion/blob/main/README.md</url>
+  <icon>freefusion/resources/icons/FreeFusion.svg</icon>
+  <freecadmin>1.0.0</freecadmin>
+
+  <content>
+    <workbench>
+      <classname>FreeFusionWorkbench</classname>
+      <name>FreeFusion</name>
+      <subdirectory>./</subdirectory>
+      <icon>freefusion/resources/icons/FreeFusion.svg</icon>
+      <tag>Fusion 360</tag>
+      <tag>modeling</tag>
+      <tag>user interface</tag>
+      <tag>theme</tag>
+    </workbench>
+  </content>
+</package>

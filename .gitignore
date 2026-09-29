@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+*.FCBak
+/build/
+/pkg/
+/src/
+*.pkg.tar.*
