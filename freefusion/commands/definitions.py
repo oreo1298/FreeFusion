@@ -381,6 +381,13 @@ def component_colors():
         D.tag(root, data=info)
 
 
+def toggle_profiles():
+    obj = base.editing_object()
+    if obj is not None and "MakeInternals" in obj.PropertiesList:
+        obj.MakeInternals = not obj.MakeInternals
+        obj.Document.recompute()
+
+
 def toggle_panel(name):
     def run():
         from ..ui import docks
@@ -404,6 +411,9 @@ def register_all():
     wrap("FF_Delete", "Std_Delete", "Delete", "Delete the selection (Del)", "Delete", keywords="remove")
     register("FF_Repeat", "Repeat Last Command", "Repeat the last command", "ComputeAll", repeat,
              active=lambda: base.last_command() is not None)
+    register("FF_DataPanel", "Data Panel", "Show your local projects and recent designs", "DataPanel",
+             lambda: __import__("freefusion.ui.datapanel", fromlist=["x"]).toggle(), active=base.always,
+             keywords="projects files recent open")
     register("FF_Toolbox", "Design Shortcuts", "Search and run any command (S)", "Toolbox",
              lambda: __import__("freefusion.ui.shortcut_box", fromlist=["x"]).show(),
              active=base.always, shortcut="S", keywords="search find command")
@@ -635,6 +645,14 @@ def register_all():
     ]
     for name, target, menu, tip, icon, key in sk:
         wrap(name, target, menu, tip, icon, active=in_sketch, shortcut=key, keywords="sketch")
+    wrap("FF_SkLookAt", "Sketcher_ViewSketch", "Look At", "Look straight at the sketch", "LookAt",
+         active=in_sketch)
+    wrap("FF_SkGrid", "Sketcher_Grid", "Sketch Grid", "Show or hide the sketch grid", "Grid", active=in_sketch)
+    wrap("FF_SkSnap", "Sketcher_Snap", "Snap", "Snap to grid and geometry", "Coincident", active=in_sketch)
+    wrap("FF_SkSlice", "Sketcher_ViewSection", "Slice", "Cut away geometry in front of the sketch",
+         "SectionAnalysis", active=in_sketch)
+    register("FF_SkShowProfile", "Show Profile", "Shade closed profiles of the sketch", "CreateSketch",
+             toggle_profiles, active=in_sketch)
     register("FF_FinishSketch", "Finish Sketch", "Leave the sketch", "FinishSketch",
              lambda: __import__("freefusion.ui.sketching", fromlist=["x"]).finish_sketch(), active=in_sketch)
 

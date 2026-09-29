@@ -21,6 +21,8 @@ like Autodesk Fusion 360. Everything below the UI is still FreeCAD: files are pl
 | Extrude with Join / Cut / Intersect / New Body / New Component | Same operations, live preview, sketch *profiles* (click regions), Direction, Extent, Taper, To Object |
 | Sketches belong to components, not bodies | Same: one sketch can drive several bodies |
 | Change Parameters (user + model parameters) | Same dialog. Type `width / 2` or `1 in` in any value field. Dimensions are named d1, d2 … |
+| Data Panel | Local **Data Panel** (grid icon, top left): project folders in `~/FreeFusion Projects` and recent designs, shown with thumbnails |
+| Sketch Palette | **PALETTE** group on the SKETCH tab: Look At, Sketch Grid, Snap, Slice, Show Profile |
 | Light and dark theme | Both, switchable at runtime |
 
 ## Install

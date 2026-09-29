@@ -151,11 +151,12 @@ def workspace_menu(parent):
     menu = QtWidgets.QMenu(parent)
     wbs = Gui.listWorkbenches()
     for label, wb, icon in layout.WORKSPACES:
-        act = menu.addAction(theme.icon(icon), label.title())
-        act.setEnabled(wb in wbs)
-        if wb not in wbs:
-            act.setToolTip("Install the matching add-on to enable this workspace")
-        act.triggered.connect(lambda *_, w=wb: switch_workspace(w))
+        act = menu.addAction(theme.icon(icon), label.title() + ("" if wb in wbs else "  (add-on)"))
+        if wb in wbs:
+            act.triggered.connect(lambda *_, w=wb: switch_workspace(w))
+        else:
+            act.setToolTip("Needs an add-on - click to open the Add-on Manager")
+            act.triggered.connect(lambda *_, l=label: _offer_addon(l))
     menu.addSeparator()
     other = menu.addMenu("All FreeCAD Workbenches")
     for name in sorted(wbs, key=lambda n: getattr(wbs[n], "MenuText", n)):
@@ -165,6 +166,20 @@ def workspace_menu(parent):
         act = other.addAction(getattr(wbobj, "MenuText", name))
         act.triggered.connect(lambda *_, w=name: switch_workspace(w))
     return menu
+
+
+ADDON_HINTS = {"RENDER": "Render", "ANIMATION": "Assembly", "SIMULATION": "FEM", "MANUFACTURE": "CAM",
+               "DRAWING": "TechDraw"}
+
+
+def _offer_addon(label):
+    name = ADDON_HINTS.get(label, label.title())
+    r = QtWidgets.QMessageBox.question(
+        Gui.getMainWindow(), "FreeFusion",
+        "The %s workspace needs the '%s' workbench, which is not installed.\n\n"
+        "Open the Add-on Manager to install it?" % (label.title(), name))
+    if r == QtWidgets.QMessageBox.Yes:
+        base.run_target("Std_AddonMgr")
 
 
 def switch_workspace(wb):
@@ -219,6 +234,12 @@ class AppBar(QtWidgets.QWidget):
         h = QtWidgets.QHBoxLayout(self)
         h.setContentsMargins(6, 2, 6, 2)
         h.setSpacing(2)
+        data = QtWidgets.QToolButton()
+        data.setDefaultAction(make_action("FF_DataPanel", data, with_shortcut=False))
+        data.setIconSize(QtCore.QSize(18, 18))
+        data.setAutoRaise(True)
+        data.setFocusPolicy(QtCore.Qt.NoFocus)
+        h.addWidget(data)
         self.file_button = QtWidgets.QToolButton()
         self.file_button.setObjectName("FFFileButton")
         self.file_button.setIcon(theme.icon("File"))

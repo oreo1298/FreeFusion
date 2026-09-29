@@ -82,6 +82,11 @@ class DocObserver(object):
         refresh()
 
     def slotRelabelDocument(self, doc):
+        _sync_root_label(doc)
+        refresh()
+
+    def slotFinishSaveDocument(self, doc, filename=None):
+        _sync_root_label(doc)
         refresh()
 
     def slotUndoDocument(self, doc):
@@ -127,6 +132,21 @@ def _fusion_name(obj):
             return
     if D.is_component(obj) and not D.role(obj):
         obj.Label = D.unique_label(obj.Document, "Component")
+
+
+def _sync_root_label(doc):
+    """Fusion names the root component after the design."""
+    try:
+        root = D.root_component(doc)
+        if root is not None and root.Label != doc.Label and \
+                (root.Label.startswith("Untitled") or root.Label.startswith("Design")
+                 or root.Label == D.data(root).get("doc_label")):
+            root.Label = doc.Label
+            info = D.data(root)
+            info["doc_label"] = doc.Label
+            D.tag(root, data=info)
+    except Exception:
+        pass
 
 
 def _prepare_document(doc):
@@ -333,6 +353,17 @@ def activated():
     if _state["wsbar"] is not None:
         _state["wsbar"].hide()
     docks.activate()
+    if params.get_bool("ManagedProfile", False):
+        # new designs are saved into the local projects folder by default
+        gen = App.ParamGet("User parameter:BaseApp/Preferences/General")
+        if not gen.GetString("FileOpenSavePath", ""):
+            from . import datapanel
+            import os
+            try:
+                os.makedirs(datapanel.projects_dir(), exist_ok=True)
+                gen.SetString("FileOpenSavePath", datapanel.projects_dir())
+            except OSError:
+                pass
     for doc in App.listDocuments().values():
         _prepare_document(doc)
     k = keys.install()
@@ -389,6 +420,11 @@ def deactivated():
             pass
     _state["hidden"] = []
     docks.deactivate()
+    try:
+        from . import datapanel
+        datapanel.hide()
+    except Exception:
+        pass
     keys.set_enabled(False)
     viewport.set_enabled(False)
     viewport.refresh_grids(False)

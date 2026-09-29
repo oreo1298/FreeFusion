@@ -110,6 +110,8 @@ SKETCH = [
       "FF_CFix", "FF_CMidpoint", "FF_CConcentric", "FF_CCollinear", "FF_CSymmetry", "-",
       "FF_SkToggleDriving"]),
     ("INSPECT", ["FF_Measure"], ["FF_Measure", "FF_SkValidate"]),
+    ("PALETTE", ["FF_SkLookAt", "FF_SkGrid", "FF_SkSlice"],
+     ["FF_SkLookAt", "FF_SkGrid", "FF_SkSnap", "FF_SkSlice", "FF_SkShowProfile"]),
     ("SELECT", ["FF_WindowSelect"], ["FF_WindowSelect", "FF_SelectAll"]),
 ]
 

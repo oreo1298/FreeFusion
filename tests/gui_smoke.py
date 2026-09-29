@@ -402,6 +402,19 @@ def more_steps():
         Gui.ActiveDocument.resetEdit()
     pump(300)
 
+    # --- data panel lists the projects folder
+    from freefusion.ui import datapanel
+    os.makedirs(datapanel.projects_dir(), exist_ok=True)
+    fn = os.path.join(datapanel.projects_dir(), "smoke_test_part.FCStd")
+    doc.saveAs(fn)
+    datapanel.toggle()
+    pump(500)
+    dp = datapanel._state["dock"]
+    names = [dp.widget().list.item(i).text() for i in range(dp.widget().list.count())]
+    check("datapanel.lists", "smoke_test_part" in names, names)
+    shot("19_datapanel")
+    datapanel.toggle()
+
     # --- nav bar orbit mode translates left drags
     from freefusion.ui import viewport
     viewport.set_nav_mode("orbit")
