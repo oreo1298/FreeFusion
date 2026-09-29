@@ -135,6 +135,9 @@ class KeyFilter(QtCore.QObject):
                 return False
             if ev.key() == QtCore.Qt.Key_Escape and ev.modifiers() == QtCore.Qt.NoModifier:
                 return self._escape(t)
+            if ev.key() in (QtCore.Qt.Key_Return, QtCore.Qt.Key_Enter) and \
+                    ev.modifiers() in (QtCore.Qt.NoModifier, QtCore.Qt.KeypadModifier):
+                return self._enter(t)
             target = self._resolve(ev)
         except Exception:
             return False
@@ -154,6 +157,16 @@ class KeyFilter(QtCore.QObject):
         if etype == QtCore.QEvent.ShortcutOverride:
             return False
         QtCore.QTimer.singleShot(0, cancel_active_dialog)
+        return True
+
+    def _enter(self, etype):
+        """Fusion: Enter confirms the running command (OK)."""
+        from ..commands.base import in_sketch
+        if in_sketch() or not Gui.Control.activeDialog():
+            return False
+        if etype == QtCore.QEvent.ShortcutOverride:
+            return False
+        QtCore.QTimer.singleShot(0, accept_active_dialog)
         return True
 
     def dispatch(self, target):
@@ -177,6 +190,21 @@ class KeyFilter(QtCore.QObject):
         if self.pending:
             name, self.pending = self.pending, None
             QtCore.QTimer.singleShot(150, lambda: Gui.runCommand(name, 0))
+
+
+def accept_active_dialog():
+    """Press the task panel's OK button."""
+    mw = Gui.getMainWindow()
+    for box in mw.findChildren(QtWidgets.QDialogButtonBox):
+        try:
+            if not box.isVisible():
+                continue
+            b = box.button(QtWidgets.QDialogButtonBox.Ok)
+            if b is not None and b.isVisible() and b.isEnabled():
+                b.click()
+                return
+        except RuntimeError:
+            continue
 
 
 def cancel_active_dialog():

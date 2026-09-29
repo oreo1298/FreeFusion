@@ -85,6 +85,15 @@ class DocObserver(object):
         _sync_root_label(doc)
         refresh()
 
+    def slotStartSaveDocument(self, doc, filename=None):
+        # Fusion style version numbers (v1, v2, ...) stored in the file itself
+        try:
+            meta = dict(doc.Meta)
+            meta["FreeFusion.Version"] = str(int(meta.get("FreeFusion.Version", "0")) + 1)
+            doc.Meta = meta
+        except Exception:
+            pass
+
     def slotFinishSaveDocument(self, doc, filename=None):
         _sync_root_label(doc)
         refresh()

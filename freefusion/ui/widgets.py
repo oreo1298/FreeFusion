@@ -9,6 +9,15 @@ from ..features import parameters as PR
 from . import theme
 
 
+def _old_element(name):
+    """'Face3' from a topological-naming element like ';#a6:1;;:H121:1,F.Face3'."""
+    if not name:
+        return ""
+    if name.startswith(";") or "." in name:
+        name = name.split(".")[-1]
+    return name.lstrip("?")
+
+
 def resolve(docname, objname, sub):
     """Resolve a selection (top object + dotted sub name) to (leaf object, element)."""
     doc = App.getDocument(docname)
@@ -16,21 +25,31 @@ def resolve(docname, objname, sub):
     if top is None:
         return None, ""
     sub = sub or ""
-    if "." in sub:
-        parts = sub.split(".")
-        element = parts[-1]
-        path = ".".join(parts[:-1]) + "."
-        leaf = None
-        try:
-            leaf = top.getSubObject(path, retType=1)
-        except Exception:
-            leaf = None
-        if isinstance(leaf, tuple):
-            leaf = leaf[0]
-        if leaf is None:
-            leaf = doc.getObject(parts[-2]) if len(parts) >= 2 else top
-        return leaf, element
-    return top, sub
+    if not sub:
+        return top, ""
+    try:
+        leaf, _parent, _name, element = top.resolve(sub)
+        if leaf is not None:
+            if element and (element.startswith(";") or "." in element):
+                try:
+                    _o, _new, old = top.resolveSubElement(sub)
+                    element = old
+                except Exception:
+                    pass
+            return leaf, _old_element(element or "")
+    except Exception:
+        pass
+    # fallback for unusual paths
+    parts = [p for p in sub.split(".")]
+    element = _old_element(parts[-1])
+    leaf = top
+    for name in parts[:-1]:
+        if not name or name.startswith(";"):
+            continue
+        o = doc.getObject(name)
+        if o is not None:
+            leaf = o
+    return leaf, element
 
 
 def selection_refs():

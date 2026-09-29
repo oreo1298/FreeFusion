@@ -112,6 +112,26 @@ def steps():
         xdo("key", "Escape")
         pump(400)
 
+    # --- Enter confirms the command
+    before = len(D.design_bodies(doc))
+    Gui.Selection.clearSelection()
+    Gui.runCommand("FF_Extrude", 0)
+    pump(400)
+    from freefusion.ui import widgets as W
+    W._last_panel.profile.set_items([(sk, "")])
+    W._last_panel.op.set_key("NewBody")
+    W._last_panel.op_user = True
+    W._last_panel.preview()
+    pump(300)
+    xdo("mousemove", cx - 300, cy + 200)
+    xdo("click", 1)
+    xdo("key", "Return")
+    pump(600)
+    check("key.Enter.ok", not Gui.Control.activeDialog() and len(D.design_bodies(doc)) == before + 1,
+          len(D.design_bodies(doc)))
+    xdo("key", "ctrl+z")
+    pump(500)
+
     # --- typing in a dialog field must not trigger shortcuts
     Gui.runCommand("FF_Extrude", 0)
     pump(500)
@@ -205,6 +225,41 @@ def steps():
     shot("i04_timeline_drag")
     tl.roll_to(None)
     pump(300)
+
+    # --- clicking inside a closed sketch region selects that profile
+    sk2 = D.new_sketch(doc, root, support=[(D.origin_feature(root, "XY_Plane"), "")])
+    pts = [V(60, 0, 0), V(90, 0, 0), V(90, 30, 0), V(60, 30, 0)]
+    for i in range(4):
+        sk2.addGeometry(Part.LineSegment(pts[i], pts[(i + 1) % 4]))
+    doc.recompute()
+    for b in D.design_bodies(doc):
+        b.ViewObject.Visibility = False
+    Gui.ActiveDocument.ActiveView.viewTop()
+    Gui.SendMsgToActiveView("ViewFit")
+    pump(600)
+    shot("i06_profile_shading")
+    view = Gui.ActiveDocument.ActiveView
+    # screen position of the region centre
+    pt = view.getPointOnViewport(V(75, 15, 0))
+    vpw = view.graphicsView().viewport()
+    local = QtCore.QPoint(int(pt[0]), int(vpw.height() - pt[1]))
+    gx, gy = screen_pos(vpw, local)
+    Gui.Selection.clearSelection()
+    xdo("mousemove", gx, gy)
+    xdo("click", 1)
+    pump(500)
+    sel = [(s.ObjectName, list(s.SubElementNames)) for s in Gui.Selection.getSelectionEx("", 0)]
+    if tuple(int(x) for x in App.Version()[:2]) < (1, 1):
+        log("SKIP profile region picking needs FreeCAD 1.1 (MakeInternals)")
+    else:
+      check("profile.click.region", any(any("InternalFace" in n or "Face" in n for n in subs) for _, subs in sel), sel)
+      from freefusion.ui.widgets import selection_refs
+      refs = selection_refs()
+      check("profile.resolve", refs and refs[0][0] == sk2 and refs[0][1] == ["InternalFace1"],
+          [(o.Name, s) for o, s in refs])
+    Gui.Selection.clearSelection()
+    for b in D.design_bodies(doc):
+        b.ViewObject.Visibility = True
 
     # --- sketch keys: L starts a line after picking a plane
     xdo("mousemove", cx - 300, cy + 200)

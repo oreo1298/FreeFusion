@@ -136,7 +136,8 @@ working.
   `SubShapeBinder`s inside each body. That is how one Extrude can cut three bodies,
   and how one sketch can feed several bodies.
 * **Profiles** are the sketch's region faces (`MakeInternals`), so clicking inside a
-  closed area selects that region.
+  closed area selects that region. This needs FreeCAD 1.1; on 1.0, clicking a sketch
+  uses all of its closed loops.
 * **Extrude** becomes `Pad` for Join / New Body / New Component, `Pocket` in every target
   body for Cut, and a hidden tool body plus `Boolean (Common)` for Intersect. All objects
   of one command share a timeline group.
