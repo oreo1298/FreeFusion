@@ -199,10 +199,23 @@ def root_component(doc, create=False):
             return o
     if not create:
         return None
-    root = doc.addObject("App::Part", "Design")
+    # The root is an Assembly (itself an App::Part) so components can be jointed
+    # like in Fusion. Fall back to a plain App::Part when Assembly is unavailable.
+    root = None
+    try:
+        root = doc.addObject("Assembly::AssemblyObject", "Design")
+        root.newObject("Assembly::JointGroup", "Joints")
+    except Exception:
+        if root is not None:
+            doc.removeObject(root.Name)
+        root = doc.addObject("App::Part", "Design")
     root.Label = doc.Label or "Design"
     tag(root, role=ROLE_ROOT)
     return root
+
+
+def is_assembly(obj):
+    return is_type(obj, "Assembly::AssemblyObject")
 
 
 _active_component = {}
@@ -305,7 +318,20 @@ def new_sketch(doc, container=None, support=None, map_mode="FlatFace", placement
         sk.Placement = placement
     if "MakeInternals" in sk.PropertiesList:
         sk.MakeInternals = True   # selectable profile regions, like Fusion
+    keep_sketch_in_workbench(sk)
     return sk
+
+
+def keep_sketch_in_workbench(sk):
+    """Editing a sketch must not switch to the Sketcher workbench (FreeCAD's default)."""
+    if not App.GuiUp:
+        return
+    try:
+        vo = sk.ViewObject
+        if vo is not None and "EditingWorkbench" in vo.PropertiesList and vo.EditingWorkbench:
+            vo.EditingWorkbench = ""
+    except Exception:
+        pass
 
 
 def make_binder(body, refs, gid=None):

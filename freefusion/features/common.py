@@ -221,27 +221,29 @@ def fix_direction(feature, center, direction, sign=1.0):
     return False
 
 
-def default_targets(doc, refs, operation, tool_shape):
+def default_targets(doc, refs, operation, tool_shape, exclude=()):
     """Fusion's automatic target choice for an operation."""
     owner = P.owning_body(refs)
+    if owner in exclude:
+        owner = None
     if operation == JOIN:
         if owner is not None:
             return [owner]
-        hits = D.bodies_intersecting(doc, tool_shape)
+        hits = D.bodies_intersecting(doc, tool_shape, exclude=exclude)
         return hits[:1]
     if operation in (CUT, INTERSECT):
-        hits = D.bodies_intersecting(doc, tool_shape)
+        hits = D.bodies_intersecting(doc, tool_shape, exclude=exclude)
         if not hits and owner is not None:
             hits = [owner]
         return hits
     return []
 
 
-def auto_operation(doc, refs, tool_shape, distance_sign=1.0):
+def auto_operation(doc, refs, tool_shape, distance_sign=1.0, exclude=()):
     """Guess the operation Fusion would pre-select."""
     owner = P.owning_body(refs)
-    if owner is not None:
+    if owner is not None and owner not in exclude:
         return CUT if distance_sign < 0 else JOIN
-    if D.bodies_intersecting(doc, tool_shape):
+    if D.bodies_intersecting(doc, tool_shape, exclude=exclude):
         return JOIN
     return NEW_BODY

@@ -99,7 +99,7 @@ def _apply(feature, params, axis_binder):
 
 
 def create(doc, refs, params=None, operation=None, targets=None, label=None, gid=None,
-           insert_after=None):
+           insert_after=None, hide=True):
     params = dict(default_params(), **(params or {}))
     refs = P.normalize_refs(refs)
     if not refs:
@@ -140,9 +140,10 @@ def create(doc, refs, params=None, operation=None, targets=None, label=None, gid
         "type": "Revolve", "profiles": P.refs_to_json(refs), "params": params,
         "operation": operation, "targets": [b.Name for b in targets]})
     doc.recompute()
-    for o, _ in refs:
-        if D.is_sketch(o):
-            D.hide_object(o)
+    if hide:
+        for o, _ in refs:
+            if D.is_sketch(o):
+                D.hide_object(o)
     return res
 
 
@@ -157,11 +158,12 @@ def load(doc, gid):
     return refs, params, info.get("operation", C.JOIN), targets
 
 
-def update(doc, gid, refs, params, operation, targets):
+def update(doc, gid, refs, params, operation, targets, hide=True):
     primary, _, _ = C.group_state(doc, gid)
     label = primary.Label if primary is not None else gid
     points = C.insertion_points(doc, gid)
     C.remove_group(doc, gid)
     doc.recompute()
     return create(doc, refs, params, operation, targets, label=label, gid=gid,
-                  insert_after={k: v for k, v in points.items() if v is not None}).primary
+                  insert_after={k: v for k, v in points.items() if v is not None},
+                  hide=hide).primary

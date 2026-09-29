@@ -281,12 +281,66 @@ def test_construct_and_params():
     check("params.model", any(m[5] == "d1" for m in mps) and any(m[2] == "Length" for m in mps))
 
 
+def test_sweep_loft():
+    from freefusion.features import sweeploft as SL
+    doc = new_doc("swl")
+    root = D.root_component(doc)
+    prof = D.new_sketch(doc, root, support=[(D.origin_feature(root, "XY_Plane"), "")])
+    prof.addGeometry(Part.Circle(V(0, 0, 0), V(0, 0, 1), 2))
+    path = D.new_sketch(doc, root, support=[(D.origin_feature(root, "XZ_Plane"), "")])
+    path.addGeometry(Part.LineSegment(V(0, 0, 0), V(0, 30, 0)))
+    doc.recompute()
+    res = SL.sweep(doc, [(prof, [])], [(path, [])])
+    b = res.new_bodies[0]
+    check("sweep.volume", abs(b.Shape.Volume - math.pi * 4 * 30) < 1e-3, b.Shape.Volume)
+    top = D.new_sketch(doc, root, support=[(D.origin_feature(root, "XY_Plane"), "")])
+    top.AttachmentOffset = App.Placement(V(50, 0, 20), App.Rotation())
+    rect(top, -5, -5, 5, 5)
+    bot = D.new_sketch(doc, root, support=[(D.origin_feature(root, "XY_Plane"), "")])
+    bot.AttachmentOffset = App.Placement(V(50, 0, 0), App.Rotation())
+    rect(bot, -10, -10, 10, 10)
+    doc.recompute()
+    res = SL.loft(doc, [[(bot, [])], [(top, [])]], ruled=True)
+    b = res.new_bodies[0]
+    exp = 20.0 / 3 * (400 + 100 + math.sqrt(400 * 100))
+    check("loft.volume", abs(b.Shape.Volume - exp) < 1e-3, (b.Shape.Volume, exp))
+
+
+def test_special():
+    from freefusion.features import special as SP
+    doc = new_doc("spc")
+    root = D.root_component(doc)
+    h = SP.coil(doc, 20, 5, 3, 2)
+    b = D.body_of(h)
+    exp = math.pi * 1 * (math.pi * 20) * 3
+    check("coil.volume", abs(b.Shape.Volume - exp) / exp < 0.02, (b.Shape.Volume, exp))
+    sk = xy_sketch(doc)
+    sk.addGeometry(Part.Circle(V(50, 0, 0), V(0, 0, 1), 5))
+    doc.recompute()
+    shaft = X.create(doc, [(sk, [])], {"distance": 20}).new_bodies[0]
+    tip = shaft.Tip
+    face = [("Face%d" % (i + 1)) for i, f in enumerate(tip.Shape.Faces) if isinstance(f.Surface, Part.Cylinder)][0]
+    v0 = shaft.Shape.Volume
+    t = SP.thread(doc, tip, face)
+    check("thread.valid", t.isValid() and shaft.Shape.isValid(), t.getStatusString())
+    check("thread.removes", 0 < v0 - shaft.Shape.Volume < 0.2 * v0, (v0, shaft.Shape.Volume))
+    check("thread.pitch", abs(t.Pitch.Value - 1.5) < 1e-9, t.Pitch)
+    path = D.new_sketch(doc, root, support=[(D.origin_feature(root, "XZ_Plane"), "")])
+    path.addGeometry(Part.LineSegment(V(100, 0, 0), V(100, 40, 0)))
+    doc.recompute()
+    res = SP.pipe(doc, [(path, [])], 6)
+    check("pipe.volume", abs(res.new_bodies[0].Shape.Volume - math.pi * 9 * 40) < 1e-2,
+          res.new_bodies[0].Shape.Volume)
+
+
 TESTS = [
     ("extrude", lambda: test_timeline(*test_extrude_new_body_and_cut())),
     ("intersect", test_intersect_and_component),
     ("multi", test_cut_multiple_bodies),
     ("revolve", test_revolve_presspull_combine),
     ("construct", test_construct_and_params),
+    ("sweeploft", test_sweep_loft),
+    ("special", test_special),
 ]
 
 for name, fn in TESTS:

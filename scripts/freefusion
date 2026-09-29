@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# FreeFusion launcher: starts FreeCAD with the FreeFusion workbench and a separate
+# settings profile, so your regular FreeCAD configuration is left untouched.
+#
+# Environment overrides:
+#   FREECAD            path/command of the FreeCAD binary to use
+#   FREEFUSION_DIR     directory containing the FreeFusion add-on
+#   FREEFUSION_CONFIG  directory for the FreeFusion profile (default ~/.config/freefusion)
+set -euo pipefail
+
+self="$(readlink -f "${BASH_SOURCE[0]}")"
+here="$(dirname "$self")"
+
+# --- locate the add-on --------------------------------------------------------
+mod_dir="${FREEFUSION_DIR:-}"
+if [ -z "$mod_dir" ]; then
+    for cand in "$here/.." "$here/../share/freefusion" "/usr/share/freefusion" "/usr/local/share/freefusion" \
+                "${XDG_DATA_HOME:-$HOME/.local/share}/freefusion"; do
+        if [ -f "$cand/InitGui.py" ] && [ -d "$cand/freefusion" ]; then
+            mod_dir="$(readlink -f "$cand")"
+            break
+        fi
+    done
+fi
+if [ -z "$mod_dir" ]; then
+    echo "freefusion: cannot find the FreeFusion add-on (set FREEFUSION_DIR)" >&2
+    exit 1
+fi
+
+# --- locate FreeCAD -----------------------------------------------------------
+fc=()
+if [ -n "${FREECAD:-}" ]; then
+    read -r -a fc <<<"$FREECAD"
+else
+    for bin in freecad FreeCAD freecad-daily FreeCAD-daily freecad-git; do
+        if command -v "$bin" >/dev/null 2>&1; then fc=("$bin"); break; fi
+    done
+    if [ ${#fc[@]} -eq 0 ] && command -v flatpak >/dev/null 2>&1 && \
+            flatpak info org.freecad.FreeCAD >/dev/null 2>&1; then
+        fc=(flatpak run --filesystem="$mod_dir":ro org.freecad.FreeCAD)
+    fi
+    if [ ${#fc[@]} -eq 0 ]; then
+        for img in "$HOME"/Applications/FreeCAD*.AppImage "$HOME"/.local/bin/FreeCAD*.AppImage \
+                   "$HOME"/Downloads/FreeCAD*.AppImage; do
+            if [ -x "$img" ]; then fc=("$img"); break; fi
+        done
+    fi
+fi
+if [ ${#fc[@]} -eq 0 ]; then
+    echo "freefusion: FreeCAD 1.0 or newer was not found. Install it (e.g. 'sudo pacman -S freecad')" >&2
+    echo "            or point FREECAD at the binary/AppImage." >&2
+    exit 1
+fi
+
+# --- profile ----------------------------------------------------------------
+cfg_dir="${FREEFUSION_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/freefusion}"
+cfg="$cfg_dir/user.cfg"
+mkdir -p "$cfg_dir"
+if [ ! -s "$cfg" ]; then
+    cat >"$cfg" <<'XML'
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<FCParameters>
+  <FCParamGroup Name="Root">
+    <FCParamGroup Name="BaseApp">
+      <FCParamGroup Name="MainWindow">
+        <FCParamGroup Name="DockWindows">
+          <FCParamGroup Name="OverlayRight">
+            <FCText Name="Widgets">Tasks,</FCText>
+            <FCInt Name="Width" Value="360"/>
+          </FCParamGroup>
+        </FCParamGroup>
+      </FCParamGroup>
+      <FCParamGroup Name="Preferences">
+        <FCParamGroup Name="General">
+          <FCText Name="AutoloadModule">FreeFusionWorkbench</FCText>
+        </FCParamGroup>
+        <FCParamGroup Name="Mod">
+          <FCParamGroup Name="FreeFusion">
+            <FCBool Name="ManagedProfile" Value="1"/>
+          </FCParamGroup>
+          <FCParamGroup Name="Start">
+            <FCBool Name="ShowOnStartup" Value="0"/>
+            <FCBool Name="FirstStart2024" Value="0"/>
+          </FCParamGroup>
+        </FCParamGroup>
+      </FCParamGroup>
+    </FCParamGroup>
+  </FCParamGroup>
+</FCParameters>
+XML
+fi
+
+exec "${fc[@]}" -M "$mod_dir" -u "$cfg" "$@"

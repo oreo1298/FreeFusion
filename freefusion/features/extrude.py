@@ -161,7 +161,7 @@ def orient(feats, refs, params):
 
 
 def create(doc, refs, params=None, operation=None, targets=None, label=None, gid=None,
-           insert_after=None):
+           insert_after=None, hide=True):
     """Create an Extrude. Returns the common.Built result."""
     params = dict(default_params(), **(params or {}))
     refs = P.normalize_refs(refs)
@@ -189,10 +189,16 @@ def create(doc, refs, params=None, operation=None, targets=None, label=None, gid
     })
     doc.recompute()
     orient(res.features, refs, params)
-    for o in refs:
-        if D.is_sketch(o[0]):
-            D.hide_object(o[0])
+    if hide:
+        hide_profiles(refs)
     return res
+
+
+def hide_profiles(refs):
+    """Fusion hides a sketch once a feature consumed it."""
+    for o, _ in refs:
+        if D.is_sketch(o):
+            D.hide_object(o)
 
 
 def load(doc, gid):
@@ -208,7 +214,7 @@ def load(doc, gid):
     return refs, params, info.get("operation", C.JOIN), targets
 
 
-def update(doc, gid, refs, params, operation, targets):
+def update(doc, gid, refs, params, operation, targets, hide=True):
     """Modify an existing extrude in place when possible, else rebuild it."""
     primary, feats, members = C.group_state(doc, gid)
     old = load(doc, gid)
@@ -239,5 +245,5 @@ def update(doc, gid, refs, params, operation, targets):
     C.remove_group(doc, gid)
     doc.recompute()
     res = create(doc, refs, params, operation, targets, label=label, gid=gid,
-                 insert_after={k: v for k, v in points.items() if v is not None})
+                 insert_after={k: v for k, v in points.items() if v is not None}, hide=hide)
     return res.primary
