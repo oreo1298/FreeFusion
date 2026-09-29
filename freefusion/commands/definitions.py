@@ -652,8 +652,12 @@ def register_all():
         wrap(name, target, menu, tip, icon, active=in_sketch, shortcut=key, keywords="sketch")
     wrap("FF_SkLookAt", "Sketcher_ViewSketch", "Look At", "Look straight at the sketch", "LookAt",
          active=in_sketch)
-    wrap("FF_SkGrid", "Sketcher_Grid", "Sketch Grid", "Show or hide the sketch grid", "Grid", active=in_sketch)
-    wrap("FF_SkSnap", "Sketcher_Snap", "Snap", "Snap to grid and geometry", "Coincident", active=in_sketch)
+    # own toggles: FreeCAD 1.0's Sketcher_Grid crashes when run without a toolbar button
+    register("FF_SkGrid", "Sketch Grid", "Show or hide the sketch grid", "Grid",
+             lambda: __import__("freefusion.ui.sketch_snap", fromlist=["x"]).toggle_grid(), active=in_sketch)
+    register("FF_SkSnap", "Snap", "Snap to round values and to sketch geometry (hold Ctrl to suspend)",
+             "Coincident", lambda: __import__("freefusion.ui.sketch_snap", fromlist=["x"]).toggle_snap(),
+             active=in_sketch)
     wrap("FF_SkSlice", "Sketcher_ViewSection", "Slice", "Cut away geometry in front of the sketch",
          "SectionAnalysis", active=in_sketch)
     register("FF_SkShowProfile", "Show Profile", "Shade closed profiles of the sketch", "CreateSketch",

@@ -277,3 +277,30 @@ def sketch_opened(sk):
         vo.GridAuto = False
     except Exception:
         pass
+
+
+def grid_shown():
+    sk = _sketch()
+    try:
+        return bool(sk.ViewObject.ShowGrid) if sk is not None else False
+    except Exception:
+        return False
+
+
+def toggle_grid():
+    sk = _sketch()
+    if sk is None:
+        return
+    try:
+        sk.ViewObject.ShowGrid = not sk.ViewObject.ShowGrid
+    except Exception:
+        pass
+
+
+def toggle_snap():
+    """Fusion's Snap toggle: our round-value snapping and FreeCAD's object snapping."""
+    on = not enabled()
+    params.set_bool("SketchSnap", on)
+    App.ParamGet(SNAP).SetBool("Snap", on)
+    from . import notify
+    notify.status("Snap %s" % ("on" if on else "off"))

@@ -431,10 +431,13 @@ class NavBar(QtWidgets.QWidget):
         a.toggled.connect(viewport.set_grid_visible)
         if Gui.ActiveDocument and Gui.ActiveDocument.getInEdit():
             m.addSeparator()
-            for cmd, label in (("Sketcher_Grid", "Sketch Grid"), ("Sketcher_Snap", "Snap")):
-                act = __import__("freefusion.commands.base", fromlist=["x"]).qaction(cmd)
-                if act is not None:
-                    m.addAction(act)
+            from . import sketch_snap
+            for label, on, fn in (("Sketch Grid", sketch_snap.grid_shown(), sketch_snap.toggle_grid),
+                                  ("Snap", sketch_snap.enabled(), sketch_snap.toggle_snap)):
+                act = m.addAction(label)
+                act.setCheckable(True)
+                act.setChecked(on)
+                act.triggered.connect(lambda *_, f=fn: f())
 
     def _viewport_menu(self, m):
         m.addAction("New Window", lambda: Gui.runCommand("Std_ViewCreate", 0))
