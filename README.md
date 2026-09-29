@@ -2,6 +2,8 @@
 
 **FreeCAD with a Fusion 360 style workspace.** Local files only, no cloud.
 
+![FreeFusion design workspace](docs/screenshot-design.png)
+
 FreeFusion is a FreeCAD add-on (a workbench plus a launcher). It changes how FreeCAD
 looks and how you work in it, so the layout, workflow, mouse, keys and dialogs feel
 like Autodesk Fusion 360. Everything below the UI is still FreeCAD: files are plain
@@ -24,6 +26,10 @@ like Autodesk Fusion 360. Everything below the UI is still FreeCAD: files are pl
 | Data Panel | Local **Data Panel** (grid icon, top left): project folders in `~/FreeFusion Projects` and recent designs, shown with thumbnails |
 | Sketch Palette | **PALETTE** group on the SKETCH tab: Look At, Sketch Grid, Snap, Slice, Show Profile |
 | Light and dark theme | Both, switchable at runtime |
+
+| Sketching (SKETCH tab, Finish Sketch) | Command dialogs float on the right | Marking menu |
+|---|---|---|
+| ![sketch](docs/screenshot-sketch.png) | ![fillet](docs/screenshot-fillet.png) | ![marking menu](docs/marking-menu.png) |
 
 ## Install
 
@@ -123,6 +129,7 @@ units and expressions using parameter names.
 | L R C D P | sketch tools (asks for a plane first) | Line, 2-point rectangle, circle, dimension, project |
 | T O X | | Trim, Offset, Construction |
 | F6 / Ctrl+B / Ctrl+N | Fit / Compute all / New design | |
+| Enter / Esc | OK / cancel the running command | Esc stops the current sketch tool |
 
 Remap keys in **UTILITIES › Keyboard Shortcuts**. FreeCAD's own `Ctrl` shortcuts keep
 working.
@@ -171,6 +178,8 @@ TechDraw is available under DRAWING. Other gaps are covered by FreeCAD itself:
 ```sh
 tests/run_headless.sh /path/to/freecadcmd                 # modeling logic (no GUI)
 tests/run_gui.sh /path/to/freecad [outdir] [managed|plain] # GUI smoke test under Xvfb, writes screenshots
+TEST=gui_input.py tests/run_gui.sh /path/to/freecad        # real keyboard/mouse input via xdotool
+TIMEOUT=1500 TEST=gui_commands.py tests/run_gui.sh ...     # runs every FF_* command once
 python3 tools/make_icons.py                               # regenerate the SVG icon set
 ```
 

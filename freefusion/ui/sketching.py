@@ -180,6 +180,12 @@ class SketchPlanePanel(object):
     def reject(self):
         self._done = True
         self._close()
+        try:
+            from . import keys
+            if keys.instance() is not None:
+                keys.instance().pending = None   # the queued sketch tool is cancelled too
+        except Exception:
+            pass
         return True
 
     def accept(self):
