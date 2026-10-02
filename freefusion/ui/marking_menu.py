@@ -75,6 +75,10 @@ class MarkingMenu(QtWidgets.QWidget):
     def __init__(self, gpos, gesture, native=None):
         super(MarkingMenu, self).__init__(None, QtCore.Qt.Popup | QtCore.Qt.FramelessWindowHint)
         self.setObjectName("FFMarkingMenu")
+        # Wayland ignores window masks: only a transparent background gives the radial shape
+        self.setAttribute(QtCore.Qt.WA_TranslucentBackground, True)
+        self.setAutoFillBackground(False)
+        self.setStyleSheet("QWidget#FFMarkingMenu { background: transparent; }")
         self.gesture = gesture
         self.native = native
         self.hot = None
@@ -118,9 +122,21 @@ class MarkingMenu(QtWidgets.QWidget):
             lv.addWidget(b)
         self.listframe.setFixedWidth(210)
         self.listframe.adjustSize()
-        h = SIZE + self.listframe.height()
-        self.resize(SIZE, h)
-        self.center = QtCore.QPoint(SIZE // 2, SIZE // 2 - 30)
+        self.origin = QtCore.QPoint(gpos)      # gestures are measured from where you pressed
+        lh = self.listframe.height()
+        ring_top = SIZE // 2 - 30
+        bounds = _bounds(gpos)
+        # Wayland compositors push popups back on screen (and Qt cannot place them
+        # itself), so the menu is laid out to fit: the list goes beside the ring
+        # when there is no room below it.
+        side = None
+        if gpos.y() - ring_top + SIZE + lh > bounds.bottom():
+            side = "right" if gpos.x() + SIZE // 2 + 220 <= bounds.right() else "left"
+        ring_x = 220 if side == "left" else 0
+        width = SIZE + (220 if side else 0)
+        h = SIZE if side else SIZE + lh
+        self.resize(width, h)
+        self.center = QtCore.QPoint(ring_x + SIZE // 2, ring_top)
         for i, p in enumerate(self.pills):
             p.clicked.connect(lambda *_, n=p.name: self._run(n))
             ang = math.radians(-90 + 45 * i)
@@ -134,7 +150,13 @@ class MarkingMenu(QtWidgets.QWidget):
             else:
                 x = cx - w + 14
             p.move(int(x), int(cy - hh / 2))
-        self.listframe.move(self.center.x() - 105, self.center.y() + int(RADIUS * 0.82) + 30)
+        if side is None:
+            self.listframe.move(self.center.x() - 105, self.center.y() + int(RADIUS * 0.82) + 30)
+        else:
+            top = gpos.y() - ring_top                      # widget top on screen
+            y = min(max(self.center.y() - lh // 2, bounds.top() - top), bounds.bottom() - top - lh)
+            self.resize(width, max(h, y + lh))
+            self.listframe.move(SIZE + 6 if side == "right" else 0, max(0, y))
         # mask: pills + list + center disk
         region = QtGui.QRegion(QtCore.QRect(self.center.x() - 16, self.center.y() - 16, 32, 32),
                                QtGui.QRegion.Ellipse)
@@ -161,7 +183,7 @@ class MarkingMenu(QtWidgets.QWidget):
         p.end()
 
     def _sector(self, gpos):
-        d = self.mapFromGlobal(gpos) - self.center
+        d = gpos - self.origin
         if d.x() * d.x() + d.y() * d.y() < 20 * 20:
             return None
         ang = math.degrees(math.atan2(d.y(), d.x())) + 90
@@ -215,6 +237,18 @@ class MarkingMenu(QtWidgets.QWidget):
         self.close()
         if self.native is not None:
             QtCore.QTimer.singleShot(0, lambda: self.native(gpos))
+
+
+def _bounds(gpos):
+    """Screen area (global coordinates) the menu has to stay in."""
+    mw = Gui.getMainWindow()
+    r = QtCore.QRect(mw.mapToGlobal(QtCore.QPoint(0, 0)), mw.size())
+    screen = QtGui.QGuiApplication.screenAt(gpos) or mw.screen()
+    if screen is not None:
+        ir = r.intersected(screen.availableGeometry())
+        if not ir.isEmpty():
+            r = ir
+    return r
 
 
 _current = {"menu": None}

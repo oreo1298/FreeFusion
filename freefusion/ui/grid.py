@@ -150,10 +150,8 @@ class PlaneGrid(object):
         # createInstance() hands out an unreferenced node: hold a reference, or Coin
         # frees it the first time it is detached and re-attaching it crashes
         self.root.ref()
-        try:
-            self.root.mode = 1     # EXCLUDE_BBOX: never influences 'fit all'
-        except Exception:
-            pass
+        # INCLUDE_BBOX (the default) keeps the grid inside the near/far clipping range;
+        # FreeCAD switches these groups to EXCLUDE_BBOX while it computes 'fit all'.
         body = coin.SoSeparator()
         self.root.addChild(body)
         pick = coin.SoPickStyle()

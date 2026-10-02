@@ -1,17 +1,20 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
-"""Real input test: drives FreeFusion with X11 key/mouse events (xdotool).
+"""Real input test: drives FreeFusion with key/mouse events (xdotool on X11, see inputlib on Wayland).
 
-Run through tests/run_gui.sh with TEST=gui_input.py. Requires xdotool.
+Run through tests/run_gui.sh (X11) or tests/run_wayland.sh with TEST=gui_input.py.
 """
 
 import os
-import subprocess
+import sys
 import traceback
 
 import FreeCAD as App
 import FreeCADGui as Gui
 import Part
 from PySide import QtCore, QtGui, QtWidgets
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import inputlib as I  # noqa: E402
 
 OUT = os.environ.get("FF_OUT", "/tmp/ff_gui")
 os.makedirs(OUT, exist_ok=True)
@@ -37,7 +40,7 @@ def pump(ms=300):
 
 
 def xdo(*args):
-    subprocess.call(["xdotool"] + [str(a) for a in args])
+    I.xdo(*args)
     pump(250)
 
 

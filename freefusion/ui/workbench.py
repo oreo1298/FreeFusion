@@ -536,6 +536,23 @@ def setup_global():
         mw.workbenchActivated.connect(_workbench_changed)
     except Exception:
         pass
+    try:
+        QtWidgets.QApplication.instance().aboutToQuit.connect(_restore_sketcher_settings)
+    except Exception:
+        pass
+
+
+def _restore_sketcher_settings():
+    """Quitting while FreeFusion is active: give a shared FreeCAD profile its sketcher
+    settings back (grid line style, dimension dialog). The launcher profile keeps them."""
+    if params.get_bool("ManagedProfile", False):
+        return
+    try:
+        from . import grid, sketch_dims
+        grid.hide_freecad_sketch_grid(False)
+        sketch_dims.set_enabled(False)
+    except Exception:
+        pass
 
 
 def _workbench_changed(name):

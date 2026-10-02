@@ -209,9 +209,11 @@ def steps():
         pump(400)
 
     # click on the top face, then Shift+click the front face: both selected (Fusion)
+    from freefusion.ui.manipulator import _Camera
+
     def screen(p):
-        pt = view.getPointOnViewport(p)
-        return int(pt[0]), int(w.height() - pt[1])
+        q = _Camera(view, vp()).screen(p)      # logical pixels (HiDPI safe)
+        return int(round(q.x())), int(round(q.y()))
     Gui.Selection.clearSelection()
     fx, fy = screen(V(20, 10, 10))
     move_to(fx, fy)

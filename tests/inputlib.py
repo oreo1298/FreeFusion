@@ -96,3 +96,35 @@ def wheel(n):
 def focus_window(win_id=None):
     if not WAYLAND and win_id is not None:
         _run(["xdotool", "windowfocus", str(win_id)])
+
+
+def xdo(*args):
+    """The xdotool commands the older tests use, on X11 or Wayland."""
+    args = [str(a) for a in args]
+    if not WAYLAND:
+        _run(["xdotool"] + args)
+        return
+    cmd, rest = args[0], args[1:]
+    if cmd == "mousemove":
+        move(float(rest[0]), float(rest[1]))
+    elif cmd in ("click", "mousedown", "mouseup"):
+        repeat = 1
+        if rest and rest[0] == "--repeat":
+            repeat, rest = int(rest[1]), rest[2:]
+        b = int(rest[-1])
+        if cmd == "click":
+            click(b, repeat)
+        elif cmd == "mousedown":
+            down(b)
+        else:
+            up(b)
+    elif cmd == "key":
+        if rest and rest[0] == "--delay":
+            rest = rest[2:]
+        for k in rest:
+            key(k)
+    elif cmd == "type":
+        type_text(" ".join(rest))
+    elif cmd in ("keydown", "keyup"):
+        hold(rest[0], cmd == "keydown")
+    # windowfocus etc.: the compositor focuses the fullscreen window itself

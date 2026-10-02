@@ -12,11 +12,15 @@ rm -rf "$OUT/profile" "$OUT"/*.png "$OUT/gui_log.txt"
 RUNDIR="$(mktemp -d /tmp/ffwl.XXXX)"   # short path: the sway socket path must be < 108 chars
 chmod 700 "$RUNDIR"
 cat > "$RUNDIR/sway.cfg" <<'CFG'
-output HEADLESS-1 resolution 1600x1000 position 0 0
+output HEADLESS-1 resolution RES position 0 0 scale SCALE
 default_border none
 default_floating_border none
 for_window [app_id=".*"] fullscreen enable
 CFG
+# FF_WL_SCALE=1.5 tests fractional HiDPI scaling (the layout stays 1600x1000 logical pixels)
+SCALE="${FF_WL_SCALE:-1}"
+RES="$(python3 -c "s=$SCALE; print('%dx%d' % (round(1600*s), round(1000*s)))")"
+sed -i "s/RES/$RES/; s/SCALE/$SCALE/" "$RUNDIR/sway.cfg"
 export XDG_RUNTIME_DIR="$RUNDIR"
 WLR_BACKENDS=headless WLR_RENDERER=pixman WLR_LIBINPUT_NO_DEVICES=1 WLR_HEADLESS_OUTPUTS=1 \
     sway -c "$RUNDIR/sway.cfg" >"$OUT/sway.log" 2>&1 &

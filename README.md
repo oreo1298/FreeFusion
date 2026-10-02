@@ -22,7 +22,11 @@ like Autodesk Fusion 360. Everything below the UI is still FreeCAD: files are pl
 | ViewCube top right, light canvas, blue selection | NaviCube styled like the ViewCube, gradient canvas, ground grid, Fusion colours |
 | Extrude with Join / Cut / Intersect / New Body / New Component | Same operations, live preview, sketch *profiles* (click regions), Direction, Extent, Taper, To Object |
 | Drag arrows and value boxes on the canvas | Extrude, Press Pull, Fillet, Chamfer and Offset Plane show a drag arrow with a value box. Drag it (the value snaps to round numbers) or just type a number and press Enter |
-| Sketch snapping | The cursor locks to round values that follow the zoom (1, 2, 5, 10 …) and to endpoints, midpoints and centers. Hold Ctrl to draw freely |
+| Adaptive grid | Ground grid and sketch grid follow the zoom (5 or 10 subdivisions per major line) and always fill the view. New designs open at a useful 250 mm view |
+| Sketch snapping | The cursor locks to the grid lines and to endpoints, midpoints, centers and intersections, with a marker where the point lands. Hold Ctrl to draw freely |
+| Line tool, typed values | **L** draws chained lines with length and angle boxes next to the cursor (Tab between them); **D** places a dimension and opens an in-canvas value box, double-click a dimension to change it |
+| Sketch Palette | Construction, Look At, Sketch Grid, Snap, Slice, Show Profile and FINISH SKETCH in the panel on the right (FreeCAD's constraint lists are one checkbox away) |
+| Selection and orbit | Drag on empty canvas: left-to-right selects what is inside, right-to-left what the box touches. Shift+click adds, Ctrl+click toggles. Shift+middle-drag orbits around the design center (green dot); Shift+middle-click on the model moves it |
 | Fillet / Chamfer with Tangent Chain | Same: pick edges (or faces) on several bodies, tangent edges are added automatically, edit it again from the timeline |
 | Sketches belong to components, not bodies | Same: one sketch can drive several bodies |
 | Change Parameters (user + model parameters) | Same dialog. Type `width / 2` or `1 in` in any value field. Dimensions are named d1, d2 … |
@@ -90,17 +94,22 @@ freefusion --reset-profile      # start over with FreeFusion's defaults
 
 ## Using it
 
-**Mouse:** middle-drag pans, Shift + middle-drag orbits, the wheel zooms at the
-cursor, and a double middle-click fits the view. Right-click opens the marking menu;
-right-drag in a direction runs that command immediately.
+**Mouse:** middle-drag pans, Shift + middle-drag orbits around the design (a green dot
+marks the pivot; Shift + middle-click on the model sets a new one), the wheel zooms at
+the cursor, and a double middle-click fits the view. Drag on empty canvas to select
+with a box. Right-click opens the marking menu; right-drag in a direction runs that
+command immediately. The zoom direction, orbit pivot and box selection can be changed
+in **UTILITIES › Preferences**.
 
 **A typical part:**
 
 1. Press **L** (or **CREATE › Create Sketch**). Click a plane or a planar face.
-2. Draw. The cursor snaps to round values on the sketch grid and to endpoints,
-   midpoints and centers (hold **Ctrl** to turn snapping off). While drawing, type
+2. Draw. **L** draws lines that chain from the last point until you close the shape
+   or press Esc. The cursor snaps to the sketch grid and to endpoints, midpoints,
+   centers and intersections (hold **Ctrl** to turn snapping off). While drawing, type
    a length or angle in the boxes next to the cursor (Tab moves between them).
-   **D** dimensions, **X** toggles construction, **T** trims, **O** offsets.
+   **D** dimensions: click the geometry, place the dimension, type the value, Enter.
+   **X** toggles construction, **T** trims, **O** offsets.
    Click **FINISH SKETCH** (or press **E** to go straight to Extrude).
 3. **E** (Extrude): click the closed regions you want, set the distance and pick the
    operation. It starts as *New Body* on an empty design, *Join* or *Cut* on a body face
@@ -139,7 +148,8 @@ units and expressions using parameter names.
 | F6 / Ctrl+B / Ctrl+N | Fit / Compute all / New design | |
 | Enter / Esc | OK / cancel the running command | Esc stops the current sketch tool |
 
-Remap keys in **UTILITIES › Keyboard Shortcuts**. FreeCAD's own `Ctrl` shortcuts keep
+Remap keys in **UTILITIES › Keyboard Shortcuts**. FreeFusion runs natively on Wayland
+(KDE, GNOME, sway, Hyprland) and on X11, including fractional HiDPI scaling. FreeCAD's own `Ctrl` shortcuts keep
 working.
 
 ## How it maps onto FreeCAD
@@ -191,9 +201,14 @@ tests/run_headless.sh /path/to/freecadcmd                 # modeling logic (no G
 tests/run_gui.sh /path/to/freecad [outdir] [managed|plain] # GUI smoke test under Xvfb, writes screenshots
 TEST=gui_input.py tests/run_gui.sh /path/to/freecad        # real keyboard/mouse input via xdotool
 TEST=gui_manip.py tests/run_gui.sh /path/to/freecad        # sketch snapping and drag arrows (xdotool)
+TEST=gui_journey.py tests/run_wayland.sh /path/to/freecad  # first-use journey, natively on Wayland
+FF_WL_SCALE=1.5 TEST=... tests/run_wayland.sh ...          # same at 150 % fractional scaling
 TIMEOUT=1500 TEST=gui_commands.py tests/run_gui.sh ...     # runs every FF_* command once
 python3 tools/make_icons.py                               # regenerate the SVG icon set
 ```
+
+The Wayland runner needs `sway` and, for the virtual mouse and keyboard, Python 3 with
+`pywayland` and libxkbcommon (`pip install pywayland`).
 
 Layout of the code:
 
