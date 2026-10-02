@@ -177,6 +177,51 @@ def steps():
     pump(800)
     shot("j06_finished")
     log("INFO after finish view", view_size())
+    # --- rectangle (R) in a new sketch, then E straight from the sketch, type 20, Enter
+    from freefusion.ui import manipulator as M
+    move_to(cx, cy)
+    I.click(1)
+    I.key("r")
+    pump(800)
+    btn = [b for b in mw.findChildren(QtWidgets.QPushButton) if b.text() == "XY" and b.isVisible()]
+    if btn:
+        p = btn[0].mapToGlobal(btn[0].rect().center())
+        I.move(p.x(), p.y())
+        pump(100)
+        I.click(1)
+    pump(2000)
+    sk3 = base.editing_object()
+    w = vp()
+    rx, ry = w.width() // 2, w.height() // 2
+    move_to(rx - 122, ry + 83)
+    I.click(1)
+    pump(300)
+    move_to(rx + 103, ry - 62)
+    I.click(1)
+    pump(500)
+    I.key("Escape")
+    pump(300)
+    log("INFO rectangle", geo(sk3) if sk3 is not None else None)
+    check("rectangle.drawn", sk3 is not None and len(sk3.Geometry) == 4, geo(sk3) if sk3 else None)
+    n_bodies = len(D.design_bodies(doc))
+    I.key("e")
+    pump(1500)
+    pal = [x for x in mw.findChildren(QtWidgets.QFrame, "FFSketchPalette") if x.isVisible()]
+    check("palette.gone.after.sketch", not pal)
+    check("extrude.arrow.from.sketch", len(M.arrows()) == 1)
+    I.type_text("20")
+    pump(300)
+    I.key("Return")
+    pump(1500)
+    bodies = D.design_bodies(doc)
+    check("extrude.typed.20", len(bodies) == n_bodies + 1 and abs(bodies[-1].Shape.BoundBox.ZMax - 20) < 1e-6,
+          [round(b.Shape.BoundBox.ZMax, 3) for b in bodies])
+    doc.undo()
+    pump(300)
+    for b in D.design_bodies(doc):
+        b.ViewObject.Visibility = False
+    if sk3 is not None:
+        sk3.ViewObject.Visibility = False
     # --- add a closed rectangle via code, extrude it and look at selection
     sk2 = D.new_sketch(doc, D.root_component(doc), support=[(D.origin_feature(D.root_component(doc), "XY_Plane"), "")])
     V = App.Vector

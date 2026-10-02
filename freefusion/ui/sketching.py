@@ -56,7 +56,9 @@ def finish_sketch():
     if gd is None:
         return
     from ..commands.base import editing_object
+    from . import sketch_palette
     sk = editing_object()
+    sketch_palette.remove()
     if Gui.Control.activeDialog():
         try:
             Gui.Control.closeDialog()

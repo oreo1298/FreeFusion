@@ -130,6 +130,15 @@ class _ProfilePanel(W.FormPanel):
         if not refs:
             self._remove()
             return
+        try:
+            has_faces = bool(P.profile_faces(refs))
+        except Exception:
+            has_faces = False
+        if not has_faces:
+            self._remove()
+            self.set_hint("No closed profile selected: draw a closed shape in the sketch, "
+                          "or click a region or a planar face.", error=True)
+            return
         prm = self.params()
         if prm is None:
             return
@@ -248,7 +257,7 @@ class ExtrudePanel(_ProfilePanel):
             self.clear_arrows()
             return
         try:
-            center = P.profile_center(refs)
+            center = P.profile_center(refs) if P.profile_faces(refs) else None
             normal = P.profile_normal(refs)
         except Exception:
             center = normal = None

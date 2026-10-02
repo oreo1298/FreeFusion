@@ -304,6 +304,8 @@ def _watch():
         grid.refresh(force=True)
         if not sketch:
             sketch_snap.hide_marker()
+            from . import sketch_palette
+            sketch_palette.remove()
         if sketch:
             obj = base.editing_object()
             _state["editing"] = (obj.Document.Name, obj.Name) if obj is not None else None

@@ -187,3 +187,17 @@ def install():
         except RuntimeError:
             continue
     return True
+
+
+def remove():
+    """Take the palette out again when the sketch closes (FreeCAD reuses the panel)."""
+    mw = Gui.getMainWindow()
+    for w in mw.findChildren(QtWidgets.QFrame, "FFSketchPalette"):
+        try:
+            w.timer.stop()
+            w.hide()
+            w.setParent(None)
+            w.deleteLater()
+        except (RuntimeError, AttributeError):
+            continue
+    _state["palette"] = None
