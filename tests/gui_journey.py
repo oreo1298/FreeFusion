@@ -133,6 +133,28 @@ def steps():
     check("lines.round", all(abs(v / 5.0 - round(v / 5.0)) < 1e-6 or abs(v / 2.0 - round(v / 2.0)) < 1e-6
                              for g in segs for v in (g.StartPoint.x, g.StartPoint.y, g.EndPoint.x, g.EndPoint.y)),
           geo(sk))
+    # --- drag the free end of the second line: it locks to the grid
+    segs = [g for g in sk.Geometry if isinstance(g, Part.LineSegment)]
+    if len(segs) == 2:
+        from freefusion.ui.sketch_snap import Projector
+        pr0 = Projector(Gui.ActiveDocument.ActiveView, w, sk)
+        end = segs[1].EndPoint
+        ex, ey = pr0.to_screen(end.x, end.y)
+        move_to(ex, ey)
+        pump(300)
+        I.down(1)
+        for k in range(1, 6):
+            I.move(*gpos(ex + 9 * k + 1, ey + 4 * k + 2))
+            pump(80)
+        I.up(1)
+        pump(500)
+        moved = sk.Geometry[1].EndPoint
+        step = G.sketch_step()
+        log("INFO dragged end", moved, "step", step)
+        check("drag.locks.to.grid", (moved - end).Length > 1e-6 and
+              abs(moved.x / step - round(moved.x / step)) < 1e-6 and abs(moved.y / step - round(moved.y / step)) < 1e-6,
+              (moved, step))
+        Gui.Selection.clearSelection()
     # --- dimension the first line: D, click line, place -> value box, type, Enter
     from freefusion.ui import sketch_dims
     lines = [i for i, g in enumerate(sk.Geometry) if isinstance(g, Part.LineSegment)]

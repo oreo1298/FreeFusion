@@ -314,8 +314,10 @@ def _snap_to_grid_param():
         grp.SetBool("SnapToGrid", True)
 
 
-def snap(widget, x, y, modifiers=None):
-    """Return the snapped widget position (QPoint) for pixel (x, y), or None."""
+def snap(widget, x, y, modifiers=None, grid_only=False):
+    """Return the snapped widget position (QPoint) for pixel (x, y), or None.
+
+    grid_only: dragging existing geometry (its own end points must not catch it)."""
     if not enabled():
         hide_marker()
         return None
@@ -348,17 +350,18 @@ def snap(widget, x, y, modifiers=None):
     u, v = here
     # 1. key points: ends, midpoints, centers, intersections
     best, best_d, kind = None, KEY_RADIUS * mm_per_px, None
-    for (a, b, k) in _cached_points(sk):
+    for (a, b, k) in (() if grid_only else _cached_points(sk)):
         d = math.hypot(a - u, b - v)
         if d < best_d - 1e-9 or (best is not None and abs(d - best_d) < 1e-9 and k == "end"):
             best, best_d, kind = (a, b), d, k
-    if best is None:
+    if best is None and not grid_only:
         # 2. near a curve: let FreeCAD put the point on it
         d = distance_to_curves(sk, u, v)
         if d is not None and d < EDGE_RADIUS * mm_per_px:
             _state["last"] = None
             hide_marker()
             return None
+    if best is None:
         # 3. the grid
         best, kind = (round(u / step) * step, round(v / step) * step), "grid"
     sx, sy = pr.to_screen(*best)

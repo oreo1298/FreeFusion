@@ -349,11 +349,27 @@ class ViewFilter(QtCore.QObject):
         elif btn != QtCore.Qt.LeftButton:
             return False
         from . import sketch_snap
+        grid_only = False
         if not self._sketch_tool_active():
             sketch_snap.hide_marker()
-            return False
+            # dragging a sketch point or curve: it locks to the grid too (Fusion)
+            if t == QtCore.QEvent.MouseButtonPress:
+                self.drag_snap = self._in_sketch() and self._presel_sketch_geometry()
+                self.drag_from = _pos(ev)[0]
+                return False
+            if not getattr(self, "drag_snap", False) or not ev.buttons() & QtCore.Qt.LeftButton \
+                    and t == QtCore.QEvent.MouseMove:
+                return False
+            if t == QtCore.QEvent.MouseButtonRelease:
+                self.drag_snap = False
+            # a click with a little jitter must not move the point to the grid
+            if (_pos(ev)[0] - self.drag_from).manhattanLength() < 5:
+                return False
+            grid_only = True
         pos, gpos = _pos(ev)
-        p = sketch_snap.snap(self.widget, pos.x(), pos.y(), ev.modifiers())
+        p = sketch_snap.snap(self.widget, pos.x(), pos.y(), ev.modifiers(), grid_only=grid_only)
+        if grid_only:
+            sketch_snap.hide_marker()
         if p is None or p == pos:
             return False
         new = _mouse_event(t, p, self.widget.mapToGlobal(p), btn, ev.buttons(), ev.modifiers())
@@ -363,6 +379,14 @@ class ViewFilter(QtCore.QObject):
         finally:
             self.synth = False
         return True
+
+    def _presel_sketch_geometry(self):
+        try:
+            pre = Gui.Selection.getPreselection()
+            subs = list(getattr(pre, "SubElementNames", []) or [])
+        except Exception:
+            return False
+        return any(s.split(".")[-1].startswith(("Vertex", "Edge")) for s in subs)
 
     def _pass_right_click(self):
         from ..commands.base import in_sketch
