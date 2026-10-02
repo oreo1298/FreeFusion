@@ -262,9 +262,12 @@ class Browser(QtWidgets.QWidget):
             return
         if kind.startswith("view:"):
             view = kind.split(":")[1]
-            cmd = {"Top": "Std_ViewTop", "Front": "Std_ViewFront", "Right": "Std_ViewRight",
-                   "Home": "Std_ViewHome"}[view]
-            Gui.runCommand(cmd, 0)
+            if view == "Home":
+                from . import viewport
+                viewport.home()
+            else:
+                Gui.runCommand({"Top": "Std_ViewTop", "Front": "Std_ViewFront",
+                                "Right": "Std_ViewRight"}[view], 0)
         elif kind == "units":
             self._units_menu(QtGui.QCursor.pos())
 

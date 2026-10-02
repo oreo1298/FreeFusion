@@ -122,6 +122,11 @@ QPushButton:default:hover { background: $accent_hover; }
 QPushButton:disabled { color: $text_dim; background: $panel_alt; border-color: $border; }
 
 QCheckBox, QRadioButton { spacing: 6px; background: transparent; }
+QCheckBox::indicator { width: 13px; height: 13px; border: 1px solid $border_strong; border-radius: 2px;
+    background: $panel; }
+QCheckBox::indicator:hover { border-color: $accent; }
+QCheckBox::indicator:checked { background: $accent; border-color: $accent; image: url($res/styles/check.svg); }
+QCheckBox::indicator:disabled { background: $panel_alt; border-color: $border; }
 QGroupBox { border: 1px solid $border; border-radius: 4px; margin-top: 14px; padding-top: 6px; }
 QGroupBox::title { subcontrol-origin: margin; left: 8px; padding: 0 4px; color: $text_dim;
     font-weight: bold; }
@@ -223,6 +228,9 @@ def stylesheet(name=None):
     name = name or current_theme()
     d = dict(tokens(name))
     d["name"] = name
+    import os
+    d["res"] = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                            "resources").replace(os.sep, "/")
     return QSS.substitute(d)
 
 

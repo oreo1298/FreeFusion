@@ -355,8 +355,8 @@ class NavBar(QtWidgets.QWidget):
             b.toggled.connect(lambda on, m=mode: viewport.set_nav_mode(m if on else None))
             self.mode_buttons[mode] = b
         self._button("LookAt", "Look At", lambda: Gui.runCommand("FF_LookAt", 0))
-        self._button("Fit", "Fit (F6)", lambda: Gui.SendMsgToActiveView("ViewFit"))
-        self._button("Home", "Home view", lambda: Gui.runCommand("Std_ViewHome", 0))
+        self._button("Fit", "Fit (F6)", lambda: __import__("freefusion.ui.viewport", fromlist=["x"]).fit())
+        self._button("Home", "Home view", lambda: __import__("freefusion.ui.viewport", fromlist=["x"]).home())
         self._sep()
         self._menu_button("DisplayMode", "Display Settings", self._display_menu)
         self._menu_button("Grid", "Grid and Snaps", self._grid_menu)

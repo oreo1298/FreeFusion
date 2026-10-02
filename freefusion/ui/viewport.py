@@ -39,95 +39,114 @@ def set_draw_style(mode):
 
 
 # ---------------------------------------------------------------------------
-# ground grid (Coin), like Fusion's layout grid
-
-
-def _coin():
-    from pivy import coin
-    return coin
-
-
-_grids = {}
-
-
-def _make_grid(size=500.0, minor=10.0, major=50.0):
-    coin = _coin()
-    t = params.get_string("Theme", "light")
-    root = coin.SoType.fromName("SoSkipBoundingGroup").createInstance()
-    try:
-        root.mode = 1   # EXCLUDE_BBOX: do not influence 'fit all'
-    except Exception:
-        pass
-    body = coin.SoSeparator()      # keeps pick style / light model local to the grid
-    root.addChild(body)
-    pick = coin.SoPickStyle()
-    pick.style = coin.SoPickStyle.UNPICKABLE
-    body.addChild(pick)
-    light = coin.SoLightModel()
-    light.model = coin.SoLightModel.BASE_COLOR
-    body.addChild(light)
-    for step, color, width in ((minor, (0.84, 0.86, 0.89) if t == "light" else (0.33, 0.35, 0.38), 1),
-                               (major, (0.72, 0.75, 0.79) if t == "light" else (0.42, 0.45, 0.49), 1.5)):
-        sep = coin.SoSeparator()
-        col = coin.SoBaseColor()
-        col.rgb = color
-        style = coin.SoDrawStyle()
-        style.lineWidth = width
-        pts = []
-        n = int(size / step)
-        for i in range(-n, n + 1):
-            v = i * step
-            if step == minor and abs(round(v / major) * major - v) < 1e-9:
-                continue
-            pts += [(v, -size, 0), (v, size, 0), (-size, v, 0), (size, v, 0)]
-        coords = coin.SoCoordinate3()
-        coords.point.setValues(0, len(pts), pts)
-        lines = coin.SoLineSet()
-        lines.numVertices.setValues(0, len(pts) // 2, [2] * (len(pts) // 2))
-        sep.addChild(col)
-        sep.addChild(style)
-        sep.addChild(coords)
-        sep.addChild(lines)
-        body.addChild(sep)
-    return root
+# ground / sketch grid: see grid.py (adaptive, like Fusion's layout grid)
 
 
 def grid_visible():
-    return params.get_bool("ShowGrid", True)
+    from . import grid
+    return grid.ground_visible()
 
 
 def set_grid_visible(on):
-    params.set_bool("ShowGrid", on)
-    refresh_grids()
+    from . import grid
+    grid.set_ground_visible(on)
 
 
 def refresh_grids(enabled=True):
-    """Add/remove the grid in every open 3D view."""
-    show = enabled and grid_visible()
-    if show:
-        try:
-            from ..commands.base import in_sketch
-            show = not in_sketch()     # the sketch grid replaces it while sketching
-        except Exception:
-            pass
-    for gdoc in _gui_documents():
-        for view in _views(gdoc):
-            key = id(view)
+    """Turn the adaptive grids on/off in every open 3D view."""
+    from . import grid
+    if enabled != grid._state["enabled"]:
+        grid.set_enabled(enabled)
+    else:
+        grid.refresh(force=True)
+
+
+# ---------------------------------------------------------------------------
+# camera: Fusion opens a new design at a useful scale (not FreeCAD's 4 mm empty fit)
+
+DEFAULT_VIEW_MM = 250.0
+ISOMETRIC = (0.424708, 0.17592, 0.339851, 0.820473)
+
+
+def _design_extent(doc):
+    """Size of the visible design in mm (0 when empty)."""
+    bb = _design_bbox(doc)
+    return bb.DiagonalLength if bb is not None else 0.0
+
+
+def _design_bbox(doc):
+    """Bounding box of everything visible in the design, or None."""
+    try:
+        from .. import design as D
+        bb = None
+        for o in doc.Objects:
+            if not hasattr(o, "Shape") or D.is_origin_feature(o):
+                continue
             try:
-                sg = view.getSceneGraph()
+                if not o.ViewObject.Visibility or o.Shape.isNull():
+                    continue
+                b = o.Shape.BoundBox
             except Exception:
                 continue
-            node = _grids.get(key)
-            if show and node is None:
-                node = _make_grid()
-                sg.insertChild(node, 0)
-                _grids[key] = (node, sg)
-            elif not show and node is not None:
-                try:
-                    node[1].removeChild(node[0])
-                except Exception:
-                    pass
-                _grids.pop(key, None)
+            if not b.isValid():
+                continue
+            if bb is None:
+                bb = App.BoundBox(b)
+            else:
+                bb.add(b)
+        return bb
+    except Exception:
+        return None
+
+
+def default_view(view=None, size=DEFAULT_VIEW_MM, center=None, orientation=ISOMETRIC):
+    """Isometric view of `size` mm around the origin (used for empty designs)."""
+    from pivy import coin
+    try:
+        view = view or Gui.ActiveDocument.ActiveView
+        cam = view.getCameraNode()
+    except Exception:
+        return
+    center = center or App.Vector(0, 0, 0)
+    if orientation is not None:
+        cam.orientation.setValue(coin.SbRotation(*orientation))
+    rot = cam.orientation.getValue()
+    d = App.Vector(*rot.multVec(coin.SbVec3f(0, 0, -1)).getValue())
+    if cam.getTypeId().getName().getString() == "OrthographicCamera":
+        cam.height.setValue(size)
+        dist = size * 2.0
+    else:
+        dist = (size / 2.0) / math.tan(cam.heightAngle.getValue() / 2.0)
+    pos = center - d * dist
+    cam.position.setValue(pos.x, pos.y, pos.z)
+    cam.focalDistance.setValue(dist)
+
+
+def fit(view=None):
+    """Fit all, or the default scale when there is nothing to fit (Fusion's behaviour)."""
+    try:
+        view = view or Gui.ActiveDocument.ActiveView
+        doc = Gui.ActiveDocument.Document
+    except Exception:
+        return
+    from . import navigation
+    navigation.reset_pivot(doc)
+    if _design_extent(doc) < 1e-3:
+        default_view(view, orientation=None)
+    else:
+        view.fitAll()
+
+
+def home(view=None):
+    try:
+        view = view or Gui.ActiveDocument.ActiveView
+    except Exception:
+        return
+    try:
+        view.viewIsometric()
+    except Exception:
+        pass
+    QtCore.QTimer.singleShot(0, lambda: fit(view))
 
 
 def _gui_documents():
@@ -244,15 +263,29 @@ class ViewFilter(QtCore.QObject):
             return False
         btn = ev.button() if t != QtCore.QEvent.MouseMove else QtCore.Qt.NoButton
         # on-canvas manipulators (drag arrows) come first
-        from . import manipulator
+        from . import manipulator, navigation
         if manipulator.handle_event(self.widget, ev, t):
+            return True
+        pos = _pos(ev)[0]
+        # Fusion orbit (Shift + middle) around the design center / picked pivot
+        if navigation.handle_orbit(self.widget, ev, t, pos):
+            return True
+        # selection box on empty canvas, Shift + click adds
+        if not mode and self._select_box_allowed() and navigation.handle_select(
+                self.widget, ev, t, pos, self._in_sketch()):
             return True
         # sketch tools: lock the cursor to round values and key points
         if not mode and self._snap(ev, t, btn):
             return True
+        # double click on a sketch dimension: in-canvas value box instead of FreeCAD's dialog
+        if t == QtCore.QEvent.MouseButtonDblClick and btn == QtCore.Qt.LeftButton \
+                and not self._sketch_tool_active():
+            from . import sketch_dims
+            if sketch_dims.double_click(self.widget, _pos(ev)[0]):
+                return True
         # double middle click = fit all (Fusion)
         if t == QtCore.QEvent.MouseButtonDblClick and btn == QtCore.Qt.MiddleButton:
-            Gui.SendMsgToActiveView("ViewFit")
+            fit()
             return True
         # navigation tool modes from the nav bar
         if mode:
@@ -295,15 +328,30 @@ class ViewFilter(QtCore.QObject):
             return True
         return False
 
+    def _in_sketch(self):
+        from ..commands.base import in_sketch
+        return in_sketch()
+
+    def _select_box_allowed(self):
+        if not params.get_bool("WindowSelect", True):
+            return False
+        try:
+            gd = Gui.ActiveDocument
+            # a feature in edit (FreeCAD task dialogs) handles its own clicks
+            return gd is not None and (gd.getInEdit() is None or self._in_sketch())
+        except Exception:
+            return False
+
     def _snap(self, ev, t, btn):
         if t == QtCore.QEvent.MouseMove:
             if ev.buttons() & ~QtCore.Qt.LeftButton:
                 return False
         elif btn != QtCore.Qt.LeftButton:
             return False
-        if not self._sketch_tool_active():
-            return False
         from . import sketch_snap
+        if not self._sketch_tool_active():
+            sketch_snap.hide_marker()
+            return False
         pos, gpos = _pos(ev)
         p = sketch_snap.snap(self.widget, pos.x(), pos.y(), ev.modifiers())
         if p is None or p == pos:

@@ -27,8 +27,8 @@ def new_design():
     D.root_component(doc, create=True)
     doc.recompute()
     try:
-        Gui.SendMsgToActiveView("ViewFit")
-        Gui.activeDocument().activeView().viewIsometric()
+        from ..ui import viewport
+        viewport.default_view(Gui.getDocument(doc.Name).ActiveView)
     except Exception:
         pass
     return doc
@@ -347,7 +347,8 @@ def look_at():
     elif Gui.Selection.getSelection():
         base.run_target("Std_AlignToSelection")
     else:
-        base.run_target("Std_ViewHome")
+        from ..ui import viewport
+        viewport.home()
 
 
 def repeat():
@@ -570,8 +571,10 @@ def register_all():
 
     # ---- view / misc
     register("FF_LookAt", "Look At", "Look straight at the selection or sketch", "LookAt", look_at)
-    wrap("FF_Home", "Std_ViewHome", "Home", "Home view", "Home")
-    wrap("FF_Fit", "Std_ViewFitAll", "Fit", "Fit the design in the window (F6)", "Fit")
+    register("FF_Home", "Home", "Home view", "Home",
+             lambda: __import__("freefusion.ui.viewport", fromlist=["x"]).home())
+    register("FF_Fit", "Fit", "Fit the design in the window (F6)", "Fit",
+             lambda: __import__("freefusion.ui.viewport", fromlist=["x"]).fit())
     register("FF_ToggleVisibility", "Show/Hide", "Toggle visibility of the selection (V)", "Eye",
              toggle_visibility, shortcut="V", keywords="hide show")
     register("FF_Isolate", "Isolate", "Show only the selected bodies", "Eye", isolate)
@@ -581,7 +584,6 @@ def register_all():
 
     # ---- SKETCH
     sk = [
-        ("FF_SkLine", "Sketcher_CreatePolyline", "Line", "Draw lines and arcs (L)", "Line", "L"),
         ("FF_SkRect2Point", "Sketcher_CreateRectangle", "2-Point Rectangle", "Rectangle by two corners (R)",
          "Rect2Point", "R"),
         ("FF_SkRectCenter", "Sketcher_CreateRectangle_Center", "Center Rectangle", "Rectangle from its center",
@@ -648,6 +650,10 @@ def register_all():
          "Collinear", ""),
         ("FF_CSymmetry", "Sketcher_ConstrainSymmetric", "Symmetry", "Symmetry constraint", "Symmetry", ""),
     ]
+    # Fusion's Line: chained lines with length/angle input (see ui/sketch_tools.py)
+    register("FF_SkLine", "Line", "Draw lines; they chain from the last end point (L)", "Line",
+             lambda: __import__("freefusion.ui.sketch_tools", fromlist=["x"]).line(),
+             active=in_sketch, keywords="sketch", shortcut="L")
     for name, target, menu, tip, icon, key in sk:
         wrap(name, target, menu, tip, icon, active=in_sketch, shortcut=key, keywords="sketch")
     wrap("FF_SkLookAt", "Sketcher_ViewSketch", "Look At", "Look straight at the sketch", "LookAt",

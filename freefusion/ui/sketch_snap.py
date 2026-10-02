@@ -191,35 +191,140 @@ def distance_to_curves(sk, u, v):
 
 
 # ---------------------------------------------------------------------------
+# key points are cached briefly: snap() runs on every mouse move
 
 
-def _set_grid(sk, step):
-    vo = sk.ViewObject
-    try:
-        if vo.GridAuto:
-            vo.GridAuto = False
-        if abs(vo.GridSize.Value - step) > 1e-9:
-            vo.GridSize = step
-    except Exception:
-        pass
-    # exact values come from FreeCAD's grid snap, which only works while the grid is drawn
-    try:
-        want = bool(vo.ShowGrid)
-        grp = App.ParamGet(SNAP)
-        if grp.GetBool("SnapToGrid", False) != want:
-            grp.SetBool("SnapToGrid", want)
-    except Exception:
-        pass
+_cache = {"key": None, "time": 0.0, "points": None}
+
+
+def _cached_points(sk):
+    import time
+    now = time.monotonic()
+    key = (sk.Document.Name, sk.Name)
+    if _cache["key"] != key or now - _cache["time"] > 0.15:
+        _cache.update(key=key, time=now, points=key_points_typed(sk))
+    return _cache["points"]
+
+
+def key_points_typed(sk):
+    """[(u, v, kind)] with kind 'end', 'mid', 'center' or 'cross' (line intersections)."""
+    import Part
+    out = [(0.0, 0.0, "end")]
+    segs = []
+    for g, _ in _curves(sk):
+        try:
+            if isinstance(g, Part.Point):
+                out.append((g.X, g.Y, "end"))
+                continue
+            if hasattr(g, "Center"):
+                c = g.Center
+                out.append((c.x, c.y, "center"))
+            if isinstance(g, (Part.Circle, Part.Ellipse)):
+                continue
+            if hasattr(g, "StartPoint"):
+                a, b = g.StartPoint, g.EndPoint
+                out += [(a.x, a.y, "end"), (b.x, b.y, "end")]
+                if isinstance(g, Part.LineSegment):
+                    out.append(((a.x + b.x) / 2, (a.y + b.y) / 2, "mid"))
+                    segs.append((a.x, a.y, b.x, b.y))
+                else:
+                    m = g.value((g.FirstParameter + g.LastParameter) / 2)
+                    out.append((m.x, m.y, "mid"))
+        except Exception:
+            continue
+    # intersections of line segments (not at their ends)
+    if len(segs) <= 150:
+        for i in range(len(segs)):
+            x1, y1, x2, y2 = segs[i]
+            for j in range(i + 1, len(segs)):
+                x3, y3, x4, y4 = segs[j]
+                den = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
+                if abs(den) < 1e-12:
+                    continue
+                t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / den
+                u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / den
+                if 1e-6 < t < 1 - 1e-6 and 1e-6 < u < 1 - 1e-6:
+                    out.append((x1 + t * (x2 - x1), y1 + t * (y2 - y1), "cross"))
+    return out
+
+
+# ---------------------------------------------------------------------------
+# snap marker: shows where the point will go (the mouse pointer itself is not moved)
+
+
+class _Marker(object):
+    KINDS = {"end": "SQUARE_LINE_9_9", "mid": "TRIANGLE_LINE_9_9", "center": "CIRCLE_LINE_9_9",
+             "cross": "CROSS_9_9", "grid": "CIRCLE_FILLED_5_5"}
+
+    def __init__(self):
+        self.view = None
+        self.root = None
+
+    def _build(self, view):
+        from pivy import coin
+        self.view = view
+        root = coin.SoAnnotation() if hasattr(coin, "SoAnnotation") else coin.SoSeparator()
+        pick = coin.SoPickStyle()
+        pick.style = coin.SoPickStyle.UNPICKABLE
+        root.addChild(pick)
+        self.xf = coin.SoTransform()
+        root.addChild(self.xf)
+        self.color = coin.SoBaseColor()
+        root.addChild(self.color)
+        self.coords = coin.SoCoordinate3()
+        root.addChild(self.coords)
+        self.markers = coin.SoMarkerSet()
+        root.addChild(self.markers)
+        self.root = root
+        view.getSceneGraph().addChild(root)
+
+    def show(self, view, sk, u, v, kind):
+        from pivy import coin
+        if self.root is None or self.view is not view:
+            self.hide()
+            self._build(view)
+        pl = sk.getGlobalPlacement()
+        q = pl.Rotation.Q
+        self.xf.translation = tuple(pl.Base)
+        self.xf.rotation.setValue(q[0], q[1], q[2], q[3])
+        self.coords.point.setValues(0, 1, [(u, v, 0.02)])
+        self.markers.markerIndex = getattr(coin.SoMarkerSet, self.KINDS.get(kind, "CIRCLE_FILLED_5_5"))
+        self.color.rgb = (0.92, 0.45, 0.05) if kind != "grid" else (0.02, 0.59, 0.84)
+
+    def hide(self):
+        if self.root is not None:
+            try:
+                self.view.getSceneGraph().removeChild(self.root)
+            except Exception:
+                pass
+        self.root = None
+        self.view = None
+
+
+_marker = _Marker()
+
+
+def hide_marker():
+    _marker.hide()
+
+
+def _snap_to_grid_param():
+    grp = App.ParamGet(SNAP)
+    if not grp.GetBool("SnapToGrid", False):
+        grp.SetBool("SnapToGrid", True)
 
 
 def snap(widget, x, y, modifiers=None):
     """Return the snapped widget position (QPoint) for pixel (x, y), or None."""
     if not enabled():
+        hide_marker()
         return None
     if modifiers is not None and modifiers & QtCore.Qt.ControlModifier:
+        hide_marker()
         return None
     sk = _sketch()
     if sk is None:
+        hide_marker()
         return None
     try:
         view = Gui.ActiveDocument.ActiveView
@@ -236,26 +341,32 @@ def snap(widget, x, y, modifiers=None):
                     math.hypot(there2[0] - here[0], there2[1] - here[1])) / 10.0
     if mm_per_px <= 0:
         return None
-    step = nice_step(mm_per_px)
+    from . import grid
+    step = grid.sketch_step() or nice_step(mm_per_px)
     _state["step"] = step
-    _set_grid(sk, step)
+    _snap_to_grid_param()
     u, v = here
-    # 1. key points
-    best, best_d = None, KEY_RADIUS * mm_per_px
-    for (a, b) in key_points(sk):
+    # 1. key points: ends, midpoints, centers, intersections
+    best, best_d, kind = None, KEY_RADIUS * mm_per_px, None
+    for (a, b, k) in _cached_points(sk):
         d = math.hypot(a - u, b - v)
-        if d < best_d:
-            best, best_d = (a, b), d
+        if d < best_d - 1e-9 or (best is not None and abs(d - best_d) < 1e-9 and k == "end"):
+            best, best_d, kind = (a, b), d, k
     if best is None:
         # 2. near a curve: let FreeCAD put the point on it
         d = distance_to_curves(sk, u, v)
         if d is not None and d < EDGE_RADIUS * mm_per_px:
             _state["last"] = None
+            hide_marker()
             return None
-        # 3. round increments
-        best = (round(u / step) * step, round(v / step) * step)
+        # 3. the grid
+        best, kind = (round(u / step) * step, round(v / step) * step), "grid"
     sx, sy = pr.to_screen(*best)
     _state["last"] = best
+    try:
+        _marker.show(view, sk, best[0], best[1], kind)
+    except Exception as e:
+        App.Console.PrintLog("FreeFusion snap marker: %s\n" % e)
     return QtCore.QPoint(int(round(sx)), int(round(sy)))
 
 
@@ -268,8 +379,8 @@ def current_step():
 
 
 def sketch_opened(sk):
-    """Show the sketch grid (Fusion shows it by default)."""
-    if sk is None or not params.get_bool("SketchGridOnOpen", True):
+    """FreeCAD's sketch grid stays on (drawn invisibly) so snapped points are exact."""
+    if sk is None:
         return
     try:
         vo = sk.ViewObject
@@ -280,21 +391,13 @@ def sketch_opened(sk):
 
 
 def grid_shown():
-    sk = _sketch()
-    try:
-        return bool(sk.ViewObject.ShowGrid) if sk is not None else False
-    except Exception:
-        return False
+    from . import grid
+    return grid.sketch_visible()
 
 
 def toggle_grid():
-    sk = _sketch()
-    if sk is None:
-        return
-    try:
-        sk.ViewObject.ShowGrid = not sk.ViewObject.ShowGrid
-    except Exception:
-        pass
+    from . import grid
+    grid.set_sketch_visible(not grid.sketch_visible())
 
 
 def toggle_snap():
@@ -302,5 +405,7 @@ def toggle_snap():
     on = not enabled()
     params.set_bool("SketchSnap", on)
     App.ParamGet(SNAP).SetBool("Snap", on)
+    if not on:
+        hide_marker()
     from . import notify
     notify.status("Snap %s" % ("on" if on else "off"))

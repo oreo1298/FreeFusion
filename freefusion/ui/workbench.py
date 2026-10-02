@@ -64,6 +64,12 @@ class DocObserver(object):
         refresh()
 
     def slotChangedObject(self, obj, prop):
+        if prop == "Geometry":
+            from . import sketch_tools
+            sketch_tools.geometry_changed(obj)
+        elif prop == "Constraints":
+            from . import sketch_dims
+            sketch_dims.constraints_changed(obj)
         if prop in self.PROPS:
             refresh()
 
@@ -97,6 +103,14 @@ class DocObserver(object):
     def slotFinishSaveDocument(self, doc, filename=None):
         _sync_root_label(doc)
         refresh()
+
+    def slotCommitTransaction(self, doc):
+        from . import sketch_dims
+        sketch_dims.committed(doc)
+
+    def slotAbortTransaction(self, doc):
+        from . import sketch_dims
+        sketch_dims.aborted(doc)
 
     def slotUndoDocument(self, doc):
         refresh()
@@ -179,7 +193,7 @@ def _init_new_document(name):
     D.root_component(doc, create=True)
     doc.recompute()
     try:
-        Gui.getDocument(name).ActiveView.viewIsometric()
+        viewport.default_view(Gui.getDocument(name).ActiveView)
     except Exception:
         pass
     viewport.install_filters(True)
@@ -256,6 +270,20 @@ def _enforce_layout():
                 d.raise_()
 
 
+def _install_palette(tries=8):
+    from . import sketch_palette
+    if not base.in_sketch():
+        return
+    try:
+        if sketch_palette.install():
+            return
+    except Exception as e:
+        App.Console.PrintLog("FreeFusion palette: %s\n" % e)
+        return
+    if tries > 0:
+        QtCore.QTimer.singleShot(150, lambda: _install_palette(tries - 1))
+
+
 def _watch():
     if not _state["active"]:
         return
@@ -272,12 +300,18 @@ def _watch():
         if sketch and k is not None:
             k.sketch_opened()
         # the sketch grid replaces the ground grid while sketching
-        viewport.refresh_grids(not sketch)
+        from . import grid, sketch_snap
+        grid.refresh(force=True)
+        if not sketch:
+            sketch_snap.hide_marker()
         if sketch:
             obj = base.editing_object()
             _state["editing"] = (obj.Document.Name, obj.Name) if obj is not None else None
-            from . import sketch_snap
+            from . import sketch_snap, sketch_dims
             sketch_snap.sketch_opened(obj)
+            if obj is not None:
+                sketch_dims.remember(obj)
+            _install_palette()
         else:
             ed = _state["editing"]
             _state["editing"] = None
@@ -381,6 +415,8 @@ def activated():
         _prepare_document(doc)
     k = keys.install()
     k.enabled = params.get_bool("SingleKeyShortcuts", True)
+    from . import sketch_dims
+    sketch_dims.set_enabled(params.get_bool("InlineDimensions", True))
     viewport.install_filters(True)
     viewport.refresh_grids(True)
     if _state["doc_obs"] is None:
@@ -440,6 +476,8 @@ def deactivated():
         pass
     keys.set_enabled(False)
     viewport.set_enabled(False)
+    from . import sketch_dims
+    sketch_dims.set_enabled(False)
     viewport.refresh_grids(False)
     if not params.get_bool("KeepThemeEverywhere", True):
         theme.restore()

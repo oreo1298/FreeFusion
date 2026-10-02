@@ -72,11 +72,8 @@ def finish_sketch():
         _last_sketch["name"] = (sk.Document.Name, sk.Name)
         # like Fusion, go back to the home view after the first sketch of a design
         if not D.design_bodies(sk.Document, visible_only=True):
-            try:
-                gd.ActiveView.viewIsometric()
-                gd.ActiveView.fitAll()
-            except Exception:
-                pass
+            from . import viewport
+            viewport.home(gd.ActiveView)
 
 
 _last_sketch = {"name": None}

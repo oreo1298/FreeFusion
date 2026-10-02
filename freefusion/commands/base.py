@@ -139,6 +139,12 @@ class _Command(object):
         s = self.spec
         if s.name != "FF_Repeat":
             _last["name"] = s.name
+        if s.name != "FF_SkLine":
+            try:
+                from ..ui import sketch_tools
+                sketch_tools.stop()
+            except Exception:
+                pass
         try:
             if s.pre is not None:
                 s.pre()
